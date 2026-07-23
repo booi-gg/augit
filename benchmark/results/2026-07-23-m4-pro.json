@@ -1,0 +1,77 @@
+{
+  "model": "qwen2.5-coder-1.5b-instruct-q4-k-m",
+  "generatedAt": "2026-07-23T18:11:09.014Z",
+  "runtime": {
+    "nodeLlamaCpp": "3.19.1",
+    "acceleration": "metal"
+  },
+  "platform": {
+    "machine": "MacBook Pro",
+    "chip": "Apple M4 Pro",
+    "cores": 12,
+    "memoryBytes": 24000000000,
+    "arch": "arm64",
+    "node": "v24.14.1",
+    "os": "darwin 26.5.2"
+  },
+  "summary": {
+    "cases": 6,
+    "validResponses": 6,
+    "typeAccuracy": 1,
+    "keywordAccuracy": 0.9166666666666666,
+    "coldLatencyMs": 1560,
+    "medianWarmLatencyMs": 840,
+    "modelBytes": 1117320768,
+    "peakRssBytes": 2075410432
+  },
+  "cases": [
+    {
+      "id": "fix-null-profile",
+      "message": "fix(profile): add missing profile display name",
+      "typeMatch": true,
+      "keywordHits": 2,
+      "keywordTotal": 2,
+      "latencyMs": 1560
+    },
+    {
+      "id": "feat-dry-run",
+      "message": "feat(cli): add --dry-run flag for deletion",
+      "typeMatch": true,
+      "keywordHits": 2,
+      "keywordTotal": 2,
+      "latencyMs": 840
+    },
+    {
+      "id": "docs-install",
+      "message": "docs(readme): update installation instructions",
+      "typeMatch": true,
+      "keywordHits": 1,
+      "keywordTotal": 2,
+      "latencyMs": 789
+    },
+    {
+      "id": "test-download-lock",
+      "message": "test: cover concurrent model downloads",
+      "typeMatch": true,
+      "keywordHits": 2,
+      "keywordTotal": 2,
+      "latencyMs": 1619
+    },
+    {
+      "id": "refactor-parser",
+      "message": "refactor(parser): extract config parsing logic",
+      "typeMatch": true,
+      "keywordHits": 2,
+      "keywordTotal": 2,
+      "latencyMs": 865
+    },
+    {
+      "id": "ci-node-matrix",
+      "message": "ci(matrix): update Node.js versions",
+      "typeMatch": true,
+      "keywordHits": 2,
+      "keywordTotal": 2,
+      "latencyMs": 794
+    }
+  ]
+}
