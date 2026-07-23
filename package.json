@@ -13,10 +13,10 @@
   "author": "Booi <booimangang@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/booi-gg/chill-commit.git"
+    "url": "git+https://github.com/booi-gg/gitkum.git"
   },
-  "bugs": "https://github.com/booi-gg/chill-commit/issues",
-  "homepage": "https://github.com/booi-gg/chill-commit#readme",
+  "bugs": "https://github.com/booi-gg/gitkum/issues",
+  "homepage": "https://github.com/booi-gg/gitkum#readme",
   "type": "module",
   "sideEffects": false,
   "bin": {
