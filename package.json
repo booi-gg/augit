@@ -1,0 +1,25 @@
+{
+  "name": "chill-commit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generate concise Git commit messages with a small local language model.",
+  "type": "module",
+  "bin": {
+    "chill-commit": "./bin/chill-commit.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "check": "node --check bin/chill-commit.mjs && node --check src/index.mjs && node --test",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "packageManager": "pnpm@10.33.2"
+}
