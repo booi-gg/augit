@@ -5,7 +5,7 @@
   "description": "Generate concise Git commit messages with a small local language model.",
   "type": "module",
   "bin": {
-    "chill-commit": "./bin/chill-commit.mjs"
+    "gikum": "./bin/cli.mjs"
   },
   "exports": {
     ".": "./src/index.mjs"
@@ -15,7 +15,7 @@
     "src"
   ],
   "scripts": {
-    "check": "node --check bin/chill-commit.mjs && node --check src/index.mjs && node --test",
+    "check": "node --check bin/cli.mjs && node --check src/index.mjs && node --test",
     "test": "node --test"
   },
   "engines": {
