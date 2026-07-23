@@ -18,9 +18,9 @@ Why it is the starting point:
   models while remaining much lighter than 3B+ models.
 
 Do not bundle the weights in the npm tarball. Download them on first use,
-verify the artifact, and cache them in the platform cache directory. This
-keeps installs reliable and lets users switch models without republishing the
-package.
+verify the artifact, and cache them in the platform cache directory. Users do
+not pick a model: the CLI owns one curated built-in choice so the normal
+experience is download once and then just run.
 
 Before locking the default, benchmark it against:
 
@@ -38,10 +38,19 @@ Before locking the default, benchmark it against:
 6. Expose library and CLI APIs.
 7. Benchmark quality, cold start, warm latency, memory, and download size.
 
-## First decisions to make
+## MVP decisions
 
-- Whether v1 supports only staged changes or also accepts explicit diff text.
-- Conventional Commits by default, auto-detection, or an opt-in flag.
-- Maximum acceptable download size, memory use, and warm latency.
-- Supported platforms and whether GPU acceleration is optional or required.
-- Offline behavior before the model has been downloaded.
+- Generate from staged changes only.
+- Use Conventional Commits by default.
+- Offer no model picker or model-selection flag. The implementation can replace
+  the built-in model after evaluation without changing the user interface.
+- Automatically download the built-in model on first generation. Keep
+  `--download-model` only as an optional prefetch for offline preparation.
+- Accept the current 1,117,320,768-byte (about 1.12 GB) model download as the
+  baseline. Measure peak memory and warm latency before setting final release
+  budgets.
+- Support CPU inference on macOS, Linux, and Windows. Hardware acceleration is
+  optional and must not be required for correct behavior.
+- Once cached, run fully offline. Before the first successful download, fail
+  with a clear instruction to connect and retry; never leave a partial model
+  presented as usable.
