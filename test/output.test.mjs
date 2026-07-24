@@ -42,16 +42,43 @@ test("rejects non-Conventional subjects", () => {
   );
 });
 
-test("rejects subjects longer than 72 characters", () => {
+test("targets 50 characters and enforces a 72-character ceiling", () => {
+  assert.equal(
+    normalizeCommitMessage({
+      subject: `feat: ${"x".repeat(66)}`,
+      body: "",
+    }).subject.length,
+    72,
+  );
+
   assert.throws(
     () =>
       normalizeCommitMessage({
-        subject: `feat: ${"x".repeat(70)}`,
+        subject: `feat: ${"x".repeat(67)}`,
         body: "",
       }),
     (error) =>
       error instanceof InvalidModelOutputError &&
       /72 characters/.test(error.message),
+  );
+});
+
+test("does not truncate exact identifiers to meet the 50-character target", () => {
+  const subject = "feat(package): update package name to @booi-gg/gitkum";
+
+  assert.equal(normalizeCommitMessage({ subject, body: "" }).subject, subject);
+});
+
+test("rejects non-imperative subject descriptions", () => {
+  assert.throws(
+    () =>
+      normalizeCommitMessage({
+        subject: "feat(cli): adds color to commit reviews",
+        body: "",
+      }),
+    (error) =>
+      error instanceof InvalidModelOutputError &&
+      /imperative verb/.test(error.message),
   );
 });
 
@@ -101,4 +128,59 @@ test("normalizes path-like and redundant scopes", () => {
     }).message,
     "test: cover concurrent downloads",
   );
+});
+
+test("drops a boilerplate body that paraphrases the subject", () => {
+  const result = normalizeCommitMessage({
+    subject: "build(package): rename to @booi-gg/gitkum",
+    body:
+      "The package has been renamed to @booi-gg/gitkum to better reflect " +
+      "the project's purpose and scope.",
+  });
+
+  assert.deepEqual(result, {
+    subject: "build(package): rename to @booi-gg/gitkum",
+    body: "",
+    message: "build(package): rename to @booi-gg/gitkum",
+  });
+});
+
+test("drops verbose boilerplate around a focused change", () => {
+  const result = normalizeCommitMessage({
+    subject: "feat(package): update package name to @booi-gg/gitkum",
+    body:
+      "This commit updates the package name from 'gitkum' to " +
+      "'@booi-gg/gitkum' to reflect the new project name. The change is " +
+      "straightforward and does not introduce any breaking changes.",
+  });
+
+  assert.equal(result.body, "");
+  assert.equal(
+    result.message,
+    "feat(package): update package name to @booi-gg/gitkum",
+  );
+});
+
+test("keeps concrete body context that is absent from the subject", () => {
+  const result = normalizeCommitMessage({
+    subject: "build(package): rename to @booi-gg/gitkum",
+    body: "Existing installs must update imports to use the scoped package.",
+  });
+
+  assert.equal(
+    result.body,
+    "Existing installs must update imports to use the scoped package.",
+  );
+});
+
+test("wraps useful body text at 72 characters", () => {
+  const result = normalizeCommitMessage({
+    subject: "fix(cache): recover stale model downloads",
+    body:
+      "Heartbeat-backed locks let another process recover when a downloader " +
+      "exits before releasing the shared model cache lock.",
+  });
+
+  assert.ok(result.body.includes("\n"));
+  assert.ok(result.body.split("\n").every((line) => line.length <= 72));
 });
