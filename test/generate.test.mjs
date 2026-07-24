@@ -210,6 +210,23 @@ test("diversifies sampling when regenerating or repairing", async () => {
   assert.notEqual(calls[0].seed, calls[1].seed);
 });
 
+test("strips the scope from the result when scopes are disabled", async () => {
+  const runtime = {
+    async generate() {
+      return { subject: "fix(cli): handle missing profiles", body: "" };
+    },
+  };
+
+  const result = await generateCommit({
+    allowScope: false,
+    collector: async () => fixtureContext(),
+    ensureModel: async () => ({ path: "/cache/model.gguf" }),
+    runtime,
+  });
+
+  assert.equal(result.subject, "fix: handle missing profiles");
+});
+
 test("disposes a runtime that it creates", async () => {
   let disposed = 0;
   const message = await generateCommitMessage({

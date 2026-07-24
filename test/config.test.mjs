@@ -127,18 +127,14 @@ test("config set persists a boolean value through the injected save", async () =
   const { io, state } = fixtureIo();
   const saved = [];
 
-  const status = await runConfigCommand(
-    ["set", "auto-stage-all", "true"],
-    io,
-    {
-      async load() {
-        return { ...DEFAULT_CONFIG };
-      },
-      async save(config) {
-        saved.push(config);
-      },
+  const status = await runConfigCommand(["set", "auto-stage-all", "true"], io, {
+    async load() {
+      return { ...DEFAULT_CONFIG };
     },
-  );
+    async save(config) {
+      saved.push(config);
+    },
+  });
 
   assert.equal(status, 0);
   assert.equal(state.stdout, "auto-stage-all = true\n");

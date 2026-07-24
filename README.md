@@ -178,8 +178,8 @@ GitKum persists a small config file that toggles a few optional behaviors.
 Each defaults to the behavior described above, so the CLI works as documented
 until you opt into a change.
 
-| Key                  | Default | Effect                                                                                            |
-| -------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| Key                  | Default | Effect                                                                                           |
+| -------------------- | ------- | ------------------------------------------------------------------------------------------------ |
 | `auto-stage-all`     | `false` | When `true`, skip the "Stage all changes and continue" prompt and stage everything automatically |
 | `show-scope`         | `true`  | When `false`, generate bare `<type>: <description>` subjects with no `(scope)`                   |
 | `show-usage-summary` | `false` | When `true`, print the "Generation usage" (tokens, wall time, CPU, GPU) summary after generating |

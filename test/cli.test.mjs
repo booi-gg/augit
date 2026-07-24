@@ -830,6 +830,85 @@ test("keeps the previous message when regeneration keeps repeating it", async ()
   );
 });
 
+test("retries the initial generation after invalid model output", async () => {
+  const committed = [];
+  const stderrLines = [];
+  let generateCalls = 0;
+
+  const io = {
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write() {} },
+    stderr: {
+      isTTY: true,
+      write(text) {
+        stderrLines.push(text);
+      },
+    },
+  };
+
+  const status = await run(["commit"], io, {
+    async commitChanges({ message }) {
+      committed.push(message);
+      return { stdout: "", stderr: "" };
+    },
+    createRuntime() {
+      return { async dispose() {} };
+    },
+    async generate() {
+      generateCalls += 1;
+
+      if (generateCalls < 3) {
+        throw new InvalidModelOutputError(
+          "body is required because the diff touches more than one file.",
+        );
+      }
+
+      return "fix(cli): describe the staged change";
+    },
+    async hasChanges() {
+      return false;
+    },
+    async promptGeneratedCommit() {
+      return "commit";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(generateCalls, 3);
+  assert.deepEqual(committed, ["fix(cli): describe the staged change"]);
+  assert.ok(
+    stderrLines.some((line) => /body is required.*Retrying\.\.\./s.test(line)),
+  );
+});
+
+test("gives up after the initial generation keeps producing invalid output", async () => {
+  let generateCalls = 0;
+
+  const io = {
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write() {} },
+    stderr: { isTTY: true, write() {} },
+  };
+
+  const status = await run(["commit"], io, {
+    createRuntime() {
+      return { async dispose() {} };
+    },
+    async generate() {
+      generateCalls += 1;
+      throw new InvalidModelOutputError(
+        "subject is not a Conventional Commit.",
+      );
+    },
+    async hasChanges() {
+      return false;
+    },
+  });
+
+  assert.equal(status, 1);
+  assert.equal(generateCalls, 3);
+});
+
 test("cancels without committing the generated message", async () => {
   let commitCalls = 0;
   let stdout = "";

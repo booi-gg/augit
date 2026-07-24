@@ -113,7 +113,10 @@ export function normalizeCommitMessage(
     throw new InvalidModelOutputError("body must be a string.");
   }
 
-  const subject = normalizeSubject(output.subject, { allowScope, requiredType });
+  const subject = normalizeSubject(output.subject, {
+    allowScope,
+    requiredType,
+  });
   let body = normalizeBody(output.body || "");
 
   if (isRedundantBody(subject, body)) {
