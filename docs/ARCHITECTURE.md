@@ -15,10 +15,11 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
 ## Components
 
 - `src/git.mjs` runs Git directly with `spawn`, collects only the index, caps
-  buffered output, and stages or commits only after an explicit CLI choice.
-- `src/interactive.mjs` owns the terminal-only prompts for an empty index and
-  generated-message review. It applies type, scope, and selection colors only
-  while writing to a color-capable TTY.
+  buffered output, and stages or commits only after an explicit CLI option or
+  review choice.
+- `src/interactive.mjs` owns terminal status styling, the unstaged-change
+  choice, and generated-message review. It applies status, type, scope, and
+  selection colors only while writing to a color-capable TTY.
 - `src/sanitize.mjs` normalizes control characters, bounds every input class,
   and redacts common credential formats.
 - `src/prompt.mjs` serializes evidence as JSON and defines the grammar schema.

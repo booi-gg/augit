@@ -3,6 +3,7 @@ import { PassThrough } from "node:stream";
 import { test } from "node:test";
 
 import {
+  formatChangesStatus,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "../src/interactive.mjs";
@@ -139,7 +140,22 @@ test("can render the review without ANSI color", async () => {
   assert.doesNotMatch(displayed, /\u001B\[(?:1;)?(?:3[0-9]|90)m/);
 });
 
-test("shows the no-staged menu and defaults to staging", async () => {
+test("formats staged-change statuses with terminal colors", () => {
+  assert.equal(
+    formatChangesStatus(true, { color: true }),
+    "\u001B[94mChanges found.\u001B[0m",
+  );
+  assert.equal(
+    formatChangesStatus(false, { color: true }),
+    "\u001B[38;5;208mNo staged changes found.\u001B[0m",
+  );
+  assert.equal(
+    formatChangesStatus(false, { color: false }),
+    "No staged changes found.",
+  );
+});
+
+test("offers to stage detected unstaged changes", async () => {
   const input = createTtyStream();
   const output = createTtyStream();
   let displayed = "";
@@ -156,10 +172,22 @@ test("shows the no-staged menu and defaults to staging", async () => {
   assert.match(displayed, /up and down arrow keys/i);
   assert.match(displayed, /❯ Stage all changes and continue/);
   assert.match(displayed, /Cancel/);
+  assert.doesNotMatch(displayed, /No staged changes found/);
   assert.deepEqual(input.rawModeChanges, [true, false]);
   assert.equal(input.isPaused(), true);
 
   input.destroy();
+});
+
+test("can cancel instead of staging detected changes", async () => {
+  const input = createTtyStream();
+  const output = createTtyStream();
+
+  const answer = promptForNoStagedChanges({ input, output });
+
+  input.end("\u001B[B\r");
+
+  assert.equal(await answer, "cancel");
 });
 
 test("selects staging with its shortcut", async () => {
@@ -174,18 +202,7 @@ test("selects staging with its shortcut", async () => {
   input.destroy();
 });
 
-test("moves down from stage to cancel", async () => {
-  const input = createTtyStream();
-  const output = createTtyStream();
-
-  const answer = promptForNoStagedChanges({ input, output });
-
-  input.end("\u001B[B\r");
-
-  assert.equal(await answer, "cancel");
-});
-
-test("cancels when the input stream ends without a selection", async () => {
+test("cancels the staging choice when input ends", async () => {
   const input = createTtyStream();
   const output = createTtyStream();
 
@@ -196,7 +213,7 @@ test("cancels when the input stream ends without a selection", async () => {
   assert.equal(await answer, "cancel");
 });
 
-test("does not prompt when input is non-interactive", async () => {
+test("does not offer staging outside a terminal", async () => {
   const input = new PassThrough();
   const output = createTtyStream();
   let displayed = "";

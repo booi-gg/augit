@@ -6,7 +6,11 @@ import {
   runCommitWorkflow,
 } from "./commit.mjs";
 import { generateCommitMessage } from "./generate.mjs";
-import { commitStagedChanges, stageAllChanges } from "./git.mjs";
+import {
+  commitStagedChanges,
+  hasWorkingTreeChanges,
+  stageAllChanges,
+} from "./git.mjs";
 import {
   promptForGeneratedCommit,
   promptForNoStagedChanges,
@@ -81,6 +85,7 @@ export {
   NotGitRepositoryError,
   collectStagedChanges,
   commitStagedChanges,
+  hasWorkingTreeChanges,
   stageAllChanges,
 } from "./git.mjs";
 export { generateCommit, generateCommitMessage } from "./generate.mjs";
@@ -99,6 +104,7 @@ export async function run(
     ensureModel = ensureBuiltInModel,
     generate = generateCommitMessage,
     getModelInfo = getBuiltInModelInfo,
+    hasChanges = hasWorkingTreeChanges,
     promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
     stageChanges = stageAllChanges,
@@ -201,6 +207,7 @@ export async function run(
       createRuntime,
       cwd,
       generate,
+      hasChanges,
       modelProgress,
       promptGeneratedCommit,
       promptNoStagedChanges,

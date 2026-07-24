@@ -7,6 +7,7 @@ import {
   NoStagedChangesError,
   collectStagedChanges,
   commitStagedChanges,
+  hasWorkingTreeChanges,
   stageAllChanges,
 } from "../src/git.mjs";
 import { createRepository, git } from "../support/git-fixture.mjs";
@@ -58,6 +59,19 @@ test("reports when there are no staged changes", async (t) => {
       error instanceof NoStagedChangesError &&
       error.code === "NO_STAGED_CHANGES",
   );
+});
+
+test("distinguishes a clean tree from unstaged and untracked changes", async (t) => {
+  const directory = await createRepository(t);
+
+  assert.equal(await hasWorkingTreeChanges({ cwd: directory }), false);
+
+  await writeFile(join(directory, "README.md"), "# changed\n");
+  assert.equal(await hasWorkingTreeChanges({ cwd: directory }), true);
+
+  await git(directory, "restore", "README.md");
+  await writeFile(join(directory, "untracked.txt"), "new\n");
+  assert.equal(await hasWorkingTreeChanges({ cwd: directory }), true);
 });
 
 test("stages all tracked and untracked changes", async (t) => {
