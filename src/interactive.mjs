@@ -89,6 +89,7 @@ export async function promptForNoStagedChanges({
 
   return promptForChoice({
     choices: noStagedChangesChoices,
+    combineMarkerAndLabel: true,
     initialSelection: 0,
     input,
     introduction:
@@ -101,6 +102,7 @@ export async function promptForNoStagedChanges({
 
 async function promptForChoice({
   choices,
+  combineMarkerAndLabel = false,
   initialSelection,
   input,
   introduction,
@@ -117,7 +119,10 @@ async function promptForChoice({
   emitKeypressEvents(input);
 
   output.write(introduction);
-  renderChoices(output, choices, selectedIndex, { useColor });
+  renderChoices(output, choices, selectedIndex, {
+    combineMarkerAndLabel,
+    useColor,
+  });
 
   return new Promise((resolve, reject) => {
     const finish = (value) => {
@@ -167,6 +172,7 @@ async function promptForChoice({
 
       if (selectedIndex !== previousIndex) {
         renderChoices(output, choices, selectedIndex, {
+          combineMarkerAndLabel,
           redraw: true,
           useColor,
         });
