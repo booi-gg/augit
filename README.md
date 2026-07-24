@@ -24,7 +24,7 @@ without a matching prebuilt binary.
 ```sh
 pnpm install
 git add path/to/changed-files
-node bin/cli.mjs
+node bin/cli.mjs commit
 ```
 
 The first generation downloads the built-in model, verifies its SHA-256
@@ -50,10 +50,11 @@ feat(cli): generate messages from staged changes
 
 Interactive terminals color the Conventional Commit type and scope, highlight
 the selected `❯` action, and keep unselected actions subdued. Set `NO_COLOR`
-to disable styling. Use the up and down arrow keys to choose an action and
-press Enter. Commit writes the staged changes immediately with the complete
-generated message. Generate again replaces the proposal, and Cancel leaves
-the staged changes untouched.
+to disable styling. Use the up and down arrow keys (or `j`/`k`) to choose an
+action and press Enter. The `y`, `r`, and `c` shortcuts commit, regenerate, and
+cancel. Commit writes the staged changes immediately with the complete
+generated message. Generate again replaces the proposal, and Cancel leaves the
+staged changes untouched.
 
 Subjects use the Conventional Commits structure, target 50 characters, and
 have a hard 72-character ceiling so exact names are never truncated. Bodies
@@ -61,8 +62,9 @@ are empty by default. A body is kept only when it adds concrete motivation,
 compatibility impact, migration guidance, or a short multi-item changelog that
 the subject cannot capture. Body lines are wrapped at 72 characters.
 
-When standard output is redirected, `gitkum` skips the menu and prints only
-the generated message. This keeps command substitution available:
+The bare `gitkum` command remains a generation shortcut. When standard output
+is redirected, it skips the menu and prints only the generated message. This
+keeps command substitution available:
 
 ```sh
 git commit -m "$(node bin/cli.mjs)"
@@ -75,7 +77,9 @@ review the proposal before selecting Commit.
 
 ```text
 gitkum [options]
+gitkum commit [options] [-- GIT_ARGS...]
 
+  commit                Draft, review, and commit staged changes
       --clear-model     Delete the downloaded model from the cache
       --download-model  Download and verify the model for offline use
       --model-info      Show information about the built-in model and its cache
@@ -86,6 +90,32 @@ gitkum [options]
 There is intentionally no model-selection flag. The product owns one curated
 model while the internal runtime adapter and benchmark harness can evaluate
 replacements.
+
+### Commit wrapper
+
+`gitkum commit` follows the staged-change workflow from `whatijustdid commit`
+while keeping GitKum's local model, secret redaction, bounded prompts, strict
+message validation, and regeneration history.
+
+```sh
+# Review staged changes, then commit, regenerate, or cancel
+gitkum commit
+
+# Stage tracked, modified, deleted, and untracked files first
+gitkum commit --all
+
+# Accept the first valid generated message without an interactive prompt
+gitkum commit --yes
+
+# Forward flags to git commit after the separator
+gitkum commit -- --no-verify
+gitkum commit --all --yes -- --signoff
+```
+
+The short forms are `-a` and `-y`. The wrapper prints each mutating Git command
+before it runs. Arguments before `--` belong to GitKum; arguments after `--`
+are passed directly to `git commit`. Non-interactive callers must pass
+`--yes`, so a pipeline cannot accidentally wait for a review prompt.
 
 To prepare before going offline:
 
@@ -111,14 +141,16 @@ node bin/cli.mjs --clear-model
 The next generation downloads and verifies the model again.
 
 If no changes are staged in an interactive terminal, the command offers to
-stage all tracked and untracked changes and continue, or to cancel. Selecting
-cancel leaves the index untouched. In non-interactive use, the command exits
-without downloading or loading the model.
+stage all tracked and untracked changes and continue, or to cancel. Select
+with the arrow keys or press `s`/`a` to stage and `c`/`n` to cancel. Selecting
+cancel leaves the index untouched. In non-interactive use, `gitkum commit`
+requires `--yes`, and `--all` opts into staging before generation.
 
 After generation in an interactive terminal, the command shows the optional
 body and offers Commit, Generate again, and Cancel. Regeneration reuses the
-loaded local model. In non-interactive use, the command prints the generated
-message without creating a commit.
+loaded local model and excludes the last three proposals from subsequent
+answers. In non-interactive use, bare `gitkum` prints the generated message
+without creating a commit; `gitkum commit --yes` creates the commit.
 
 ## Cache
 

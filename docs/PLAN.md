@@ -8,16 +8,16 @@ replaceable internal adapters.
 
 ## Status
 
-| Slice                                         | Status            | Implementation                       |
-| --------------------------------------------- | ----------------- | ------------------------------------ |
-| Collect staged diff, status, and recent style | Complete          | `src/git.mjs`                        |
-| Redact and bound model input                  | Complete          | `src/sanitize.mjs`                   |
-| Build a strict prompt and response contract   | Complete          | `src/prompt.mjs`                     |
-| Download, verify, cache, and load the model   | Complete          | `src/model.mjs`, `src/runtime.mjs`   |
-| Validate and normalize generated output       | Complete          | `src/output.mjs`                     |
-| Expose CLI and library APIs                   | Complete          | `src/index.mjs`, `src/generate.mjs`  |
-| Review, regenerate, and commit messages       | Complete          | `src/interactive.mjs`, `src/git.mjs` |
-| Measure quality, latency, memory, and size    | Baseline complete | `benchmark/`, `docs/BENCHMARKS.md`   |
+| Slice                                         | Status            | Implementation                          |
+| --------------------------------------------- | ----------------- | --------------------------------------- |
+| Collect staged diff, status, and recent style | Complete          | `src/git.mjs`                           |
+| Redact and bound model input                  | Complete          | `src/sanitize.mjs`                      |
+| Build a strict prompt and response contract   | Complete          | `src/prompt.mjs`                        |
+| Download, verify, cache, and load the model   | Complete          | `src/model.mjs`, `src/runtime.mjs`      |
+| Validate and normalize generated output       | Complete          | `src/output.mjs`                        |
+| Expose CLI and library APIs                   | Complete          | `src/index.mjs`, `src/generate.mjs`     |
+| Review, regenerate, and commit messages       | Complete          | `src/commit.mjs`, `src/interactive.mjs` |
+| Measure quality, latency, memory, and size    | Baseline complete | `benchmark/`, `docs/BENCHMARKS.md`      |
 
 The benchmark harness is intentionally separate from the product CLI. It can
 load alternate GGUF files without exposing a user-facing model picker.
@@ -38,6 +38,9 @@ load alternate GGUF files without exposing a user-facing model picker.
   as usable.
 - Review generated messages in an arrow-key menu before committing.
 - Offer commit, regenerate, and cancel actions in interactive terminals.
+- Match the `whatijustdid commit` wrapper with `--all`, `--yes`, and
+  post-`--` Git argument passthrough while preserving a non-committing bare
+  command for pipelines.
 - Color generated subjects and the selected menu action only on supported
   terminals.
 - Target 50-character subjects, enforce a 72-character ceiling, and omit bodies

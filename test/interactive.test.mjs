@@ -66,6 +66,22 @@ test("selects Generate again with the down arrow", async () => {
   assert.match(displayed, /\u001B\[1;33m❯\u001B\[0m/);
 });
 
+test("selects Generate again with its shortcut", async () => {
+  const input = createTtyStream();
+  const output = createTtyStream();
+
+  const answer = promptForGeneratedCommit({
+    input,
+    message: "feat(cli): review generated commits",
+    output,
+  });
+
+  input.write("r");
+
+  assert.equal(await answer, "regenerate");
+  input.destroy();
+});
+
 test("selects Cancel from the generated commit menu", async () => {
   const input = createTtyStream();
   const output = createTtyStream();
@@ -143,6 +159,18 @@ test("shows the no-staged menu and defaults to staging", async () => {
   assert.deepEqual(input.rawModeChanges, [true, false]);
   assert.equal(input.isPaused(), true);
 
+  input.destroy();
+});
+
+test("selects staging with its shortcut", async () => {
+  const input = createTtyStream();
+  const output = createTtyStream();
+
+  const answer = promptForNoStagedChanges({ input, output });
+
+  input.write("a");
+
+  assert.equal(await answer, "stage");
   input.destroy();
 });
 

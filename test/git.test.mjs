@@ -93,6 +93,33 @@ test("commits staged changes with the generated subject and body", async (t) => 
   assert.equal(status.stdout, "");
 });
 
+test("forwards extra arguments to git commit", async (t) => {
+  const directory = await createRepository(t);
+
+  await writeFile(join(directory, "signed.txt"), "signed\n");
+  await git(directory, "add", "signed.txt");
+  await commitStagedChanges({
+    args: ["--signoff"],
+    cwd: directory,
+    message: "feat(cli): forward commit arguments",
+  });
+
+  const log = await git(directory, "log", "-1", "--format=%B");
+
+  assert.match(log.stdout, /Signed-off-by: Gikum Test <gikum@example\.test>/);
+});
+
+test("validates forwarded Git commit arguments", async () => {
+  await assert.rejects(
+    commitStagedChanges({
+      args: [42],
+      cwd: "/unused",
+      message: "chore: validate arguments",
+    }),
+    /Git commit arguments must be an array of strings/,
+  );
+});
+
 test("bounds oversized diffs without dropping file status", async (t) => {
   const directory = await createRepository(t);
 
