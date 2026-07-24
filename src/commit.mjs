@@ -1,6 +1,11 @@
 import { generateCommitMessage } from "./generate.mjs";
-import { commitStagedChanges, stageAllChanges } from "./git.mjs";
 import {
+  commitStagedChanges,
+  hasWorkingTreeChanges,
+  stageAllChanges,
+} from "./git.mjs";
+import {
+  formatChangesStatus,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "./interactive.mjs";
@@ -65,6 +70,7 @@ export async function runCommitWorkflow(
     createRuntime = createNodeLlamaRuntime,
     cwd = process.cwd(),
     generate = generateCommitMessage,
+    hasChanges = hasWorkingTreeChanges,
     modelProgress = noProgress,
     promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
@@ -105,6 +111,9 @@ export async function runCommitWorkflow(
         if (phase === "collecting") {
           io.stderr.write("Collecting staged changes...\n");
         } else if (phase === "loading-model") {
+          io.stderr.write(
+            `${formatChangesStatus(true, { output: io.stderr })}\n`,
+          );
           io.stderr.write("Loading local model...\n");
         } else if (phase === "generating") {
           modelProgress.end?.();
@@ -123,8 +132,12 @@ export async function runCommitWorkflow(
         throw error;
       }
 
-      if (stageEverything) {
-        throw nothingToCommitError();
+      const found = stageEverything ? false : await hasChanges({ cwd });
+
+      io.stderr.write(`${formatChangesStatus(found, { output: io.stderr })}\n`);
+
+      if (!found) {
+        return 1;
       }
 
       const action = await promptNoStagedChanges({
@@ -133,13 +146,8 @@ export async function runCommitWorkflow(
       });
 
       if (action === null) {
-        if (requireCommit) {
-          throw new Error(
-            "Nothing staged to commit. Stage changes with git add, or pass --all.",
-          );
-        }
-
-        throw error;
+        io.stderr.write("Stage changes with git add, or pass --all.\n");
+        return 1;
       }
 
       if (action !== "stage") {
@@ -162,11 +170,14 @@ export async function runCommitWorkflow(
       try {
         message = await generate(generationOptions);
       } catch (retryError) {
-        if (retryError?.code === "NO_STAGED_CHANGES") {
-          throw nothingToCommitError();
+        if (retryError?.code !== "NO_STAGED_CHANGES") {
+          throw retryError;
         }
 
-        throw retryError;
+        io.stderr.write(
+          `${formatChangesStatus(false, { output: io.stderr })}\n`,
+        );
+        return 1;
       }
     }
 
@@ -259,10 +270,6 @@ export async function runCommitWorkflow(
 
 export function formatGitCommand(args) {
   return `$ ${["git", ...args].map(shellQuoteArg).join(" ")}`;
-}
-
-function nothingToCommitError() {
-  return new Error("Nothing to commit; the working tree is clean.");
 }
 
 function shellQuoteArg(value) {
