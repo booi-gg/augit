@@ -30,8 +30,11 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
   the Conventional Commit contract.
 - `src/generate.mjs` orchestrates the pipeline and retries one invalid model
   answer with validation feedback.
-- `src/index.mjs` exposes the library surface, coordinates regenerate and
-  commit actions, and keeps CLI diagnostics on standard error.
+- `src/commit.mjs` owns the commit wrapper: option parsing, optional staging,
+  review/regeneration, non-interactive confirmation, Git argument passthrough,
+  transparent command previews, and runtime reuse/disposal.
+- `src/index.mjs` exposes the library surface, routes CLI commands and model
+  cache operations, and keeps diagnostics on standard error.
 
 ## Trust boundaries
 

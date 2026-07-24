@@ -1,5 +1,10 @@
 import { readFile } from "node:fs/promises";
 
+import {
+  CommitCommandUsageError,
+  parseCommitCommandArgs,
+  runCommitWorkflow,
+} from "./commit.mjs";
 import { generateCommitMessage } from "./generate.mjs";
 import { commitStagedChanges, stageAllChanges } from "./git.mjs";
 import {
@@ -21,6 +26,10 @@ Generate concise Git commit messages with a small local language model.
 
 Usage:
   gitkum [options]
+  gitkum commit [options] [-- GIT_ARGS...]
+
+Commands:
+  commit                Draft, review, and commit staged changes
 
 Options:
       --clear-model     Delete the downloaded model from the cache
@@ -29,11 +38,27 @@ Options:
   -h, --help            Show help
   -v, --version         Show version
 
-Run without options to generate and review a message from staged changes.
-In an interactive terminal, choose whether to commit, generate again, or cancel.
-If none are staged in an interactive terminal, gitkum can stage all changes.
-In non-interactive use, the generated message is printed without committing.
+Run gitkum commit --help for staging, automation, and Git passthrough options.
+For compatibility, running without a command generates and reviews a message.
+In non-interactive use, the bare command prints the message without committing.
 The built-in model is selected automatically; model selection is not exposed.
+`;
+
+const commitHelp = `gitkum commit
+
+Draft a Conventional Commit message from staged changes, review it, and commit.
+
+Usage:
+  gitkum commit [options] [-- GIT_ARGS...]
+
+Options:
+  -a, --all             Stage all changes with git add --all
+  -y, --yes             Accept the first generated message without prompting
+  -h, --help            Show commit command help
+
+Arguments after -- are forwarded to git commit:
+  gitkum commit -- --no-verify
+  gitkum commit --all --yes -- --signoff
 `;
 
 export {
@@ -44,6 +69,12 @@ export {
   getBuiltInModelPath,
 };
 export { extractKeyConcepts, inferRequiredType } from "./classify.mjs";
+export {
+  CommitCommandUsageError,
+  formatGitCommand,
+  parseCommitCommandArgs,
+  runCommitWorkflow,
+} from "./commit.mjs";
 export {
   GitContextError,
   NoStagedChangesError,
@@ -131,7 +162,30 @@ export async function run(
     return 0;
   }
 
-  if (args.length > 0) {
+  let commandOptions;
+
+  if (args[0] === "commit") {
+    try {
+      commandOptions = {
+        ...parseCommitCommandArgs(args.slice(1)),
+        requireCommit: true,
+      };
+    } catch (error) {
+      if (!(error instanceof CommitCommandUsageError)) {
+        throw error;
+      }
+
+      io.stderr.write(`${error.message}\n`);
+      return 2;
+    }
+
+    if (commandOptions.help) {
+      io.stdout.write(commitHelp);
+      return 0;
+    }
+  } else if (args.length === 0) {
+    commandOptions = {};
+  } else {
     io.stderr.write(
       `Unknown option: ${args.join(" ")}. ` +
         "gitkum does not expose model selection; run gitkum --help.\n",
@@ -139,116 +193,19 @@ export async function run(
     return 2;
   }
 
-  let lastPhase;
   const modelProgress = createProgressWriter(io);
 
   try {
-    let runtime;
-    try {
-      runtime = await createRuntime();
-      const generationOptions = {
-        cwd,
-        onModelProgress: modelProgress,
-        onStatus({ phase }) {
-          if (phase === lastPhase) {
-            return;
-          }
-
-          lastPhase = phase;
-
-          if (phase === "collecting") {
-            io.stderr.write("Collecting staged changes...\n");
-          } else if (phase === "loading-model") {
-            io.stderr.write("Loading local model...\n");
-          } else if (phase === "generating") {
-            modelProgress.end();
-            io.stderr.write("Generating commit message...\n");
-          }
-        },
-        runtime,
-      };
-      let message;
-      let previousMessages = [];
-
-      try {
-        message = await generate(generationOptions);
-      } catch (error) {
-        if (error?.code !== "NO_STAGED_CHANGES") {
-          throw error;
-        }
-
-        const action = await promptNoStagedChanges({
-          input: io.stdin,
-          output: io.stderr,
-        });
-
-        if (action === null) {
-          throw error;
-        }
-
-        if (action !== "stage") {
-          io.stderr.write("Cancelled.\n");
-          return 0;
-        }
-
-        io.stderr.write("Staging all changes...\n");
-        await stageChanges({ cwd });
-        lastPhase = undefined;
-        message = await generate(generationOptions);
-      }
-
-      while (true) {
-        modelProgress.end();
-
-        const action = await promptGeneratedCommit({
-          input: io.stdin,
-          message,
-          output: io.stdout,
-        });
-
-        if (action === null) {
-          io.stdout.write(`${message}\n`);
-          return 0;
-        }
-
-        if (action === "cancel") {
-          io.stderr.write("Cancelled.\n");
-          return 0;
-        }
-
-        if (action === "regenerate") {
-          previousMessages = [...previousMessages, message].slice(-3);
-          message = await generate({
-            ...generationOptions,
-            previousMessages,
-          });
-          continue;
-        }
-
-        if (action === "commit") {
-          const runtimeToDispose = runtime;
-
-          runtime = undefined;
-          await runtimeToDispose?.dispose?.();
-
-          const result = await commitChanges({ cwd, message });
-
-          if (result?.stderr) {
-            io.stderr.write(result.stderr);
-          }
-
-          if (result?.stdout) {
-            io.stdout.write(result.stdout);
-          }
-
-          return 0;
-        }
-
-        throw new TypeError(`Unsupported generated commit action: ${action}`);
-      }
-    } finally {
-      await runtime?.dispose?.();
-    }
+    return await runCommitWorkflow(commandOptions, io, {
+      commitChanges,
+      createRuntime,
+      cwd,
+      generate,
+      modelProgress,
+      promptGeneratedCommit,
+      promptNoStagedChanges,
+      stageChanges,
+    });
   } catch (error) {
     modelProgress.end();
     io.stderr.write(`${error?.message || String(error)}\n`);

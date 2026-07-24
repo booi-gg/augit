@@ -27,16 +27,19 @@ const TYPE_COLORS = Object.freeze({
 const generatedCommitChoices = [
   {
     color: ANSI.green,
+    keys: ["y"],
     label: "Commit",
     value: "commit",
   },
   {
     color: ANSI.yellow,
+    keys: ["r"],
     label: "Generate again",
     value: "regenerate",
   },
   {
     color: ANSI.red,
+    keys: ["c", "n"],
     label: "Cancel",
     value: "cancel",
   },
@@ -44,11 +47,13 @@ const generatedCommitChoices = [
 const noStagedChangesChoices = [
   {
     color: ANSI.green,
+    keys: ["s", "a", "y"],
     label: "Stage all changes and continue",
     value: "stage",
   },
   {
     color: ANSI.red,
+    keys: ["c", "n"],
     label: "Cancel",
     value: "cancel",
   },
@@ -124,8 +129,12 @@ async function promptForChoice({
       cleanup();
       reject(error);
     };
-    const onKeypress = (_character, key = {}) => {
-      if ((key.ctrl && key.name === "c") || key.name === "escape") {
+    const onKeypress = (character, key = {}) => {
+      if (
+        (key.ctrl && key.name === "c") ||
+        key.name === "escape" ||
+        key.name === "q"
+      ) {
         finish("cancel");
         return;
       }
@@ -137,10 +146,23 @@ async function promptForChoice({
 
       const previousIndex = selectedIndex;
 
-      if (key.name === "up") {
-        selectedIndex = Math.max(0, selectedIndex - 1);
-      } else if (key.name === "down") {
-        selectedIndex = Math.min(choices.length - 1, selectedIndex + 1);
+      if (key.name === "up" || key.name === "k") {
+        selectedIndex = (selectedIndex + choices.length - 1) % choices.length;
+      } else if (
+        key.name === "down" ||
+        key.name === "j" ||
+        key.name === "tab"
+      ) {
+        selectedIndex = (selectedIndex + 1) % choices.length;
+      } else {
+        const shortcut = choices.find(({ keys = [] }) =>
+          keys.includes(character?.toLocaleLowerCase()),
+        );
+
+        if (shortcut) {
+          finish(shortcut.value);
+          return;
+        }
       }
 
       if (selectedIndex !== previousIndex) {
