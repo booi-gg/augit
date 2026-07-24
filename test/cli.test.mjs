@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { run } from "../src/index.mjs";
 
 const cli = fileURLToPath(new URL("../bin/cli.mjs", import.meta.url));
+const packageJsonUrl = new URL("../package.json", import.meta.url);
+const { version } = JSON.parse(readFileSync(packageJsonUrl, "utf8"));
 
 test("prints help when requested", () => {
   const result = spawnSync(process.execPath, [cli, "--help"], {
@@ -25,7 +28,7 @@ test("prints the package version", () => {
   });
 
   assert.equal(result.status, 0);
-  assert.equal(result.stdout, "0.1.0\n");
+  assert.equal(result.stdout, `${version}\n`);
 });
 
 test("downloads the single built-in model without asking for a choice", async () => {
