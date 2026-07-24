@@ -76,7 +76,7 @@ export async function promptForGeneratedCommit({
     introduction:
       `${paint("Generated commit message:", [ANSI.bold], useColor)}\n\n` +
       `${formatCommitMessage(message, { color: useColor })}\n\n` +
-      "Use the up and down arrow keys to select, then press Enter.\n",
+      "Use the [UP] and [DOWN] arrow keys to select, then press [ENTER].\n",
     output,
     useColor,
   });
@@ -105,7 +105,7 @@ export async function promptForNoStagedChanges({
     initialSelection: 0,
     input,
     introduction:
-      "Use the up and down arrow keys to select, then press Enter.\n",
+      "Use the [UP] and [DOWN] arrow keys to select, then press [ENTER].\n",
     output,
     useColor,
   });

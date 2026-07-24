@@ -169,10 +169,11 @@ test("offers to stage detected unstaged changes", async () => {
   input.write("\r");
 
   assert.equal(await answer, "stage");
-  assert.match(displayed, /up and down arrow keys/i);
-  assert.match(displayed, /❯ Stage all changes and continue/);
-  assert.match(displayed, /Cancel/);
-  assert.doesNotMatch(displayed, /No staged changes found/);
+  const plainDisplay = stripAnsi(displayed);
+  assert.match(plainDisplay, /up and down arrow keys/i);
+  assert.match(plainDisplay, /❯ Stage all changes and continue/);
+  assert.match(plainDisplay, /Cancel/);
+  assert.doesNotMatch(plainDisplay, /No staged changes found/);
   assert.deepEqual(input.rawModeChanges, [true, false]);
   assert.equal(input.isPaused(), true);
 
