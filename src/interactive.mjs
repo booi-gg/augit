@@ -8,6 +8,7 @@ const ANSI = Object.freeze({
   gray: 90,
   green: 32,
   lightBlue: 94,
+  lightGreen: "38;5;120",
   magenta: 35,
   orange: "38;5;208",
   red: 31,
@@ -237,7 +238,7 @@ function formatCommitMessage(message, { color }) {
   const [subject = "", ...bodyLines] = String(message)
     .replace(/\r\n?/g, "\n")
     .split("\n");
-  const formattedSubject = paint(subject, [ANSI.bold, ANSI.orange], color);
+  const formattedSubject = paint(subject, [ANSI.bold, ANSI.lightGreen], color);
 
   if (bodyLines.length === 0) {
     return formattedSubject;
@@ -245,7 +246,7 @@ function formatCommitMessage(message, { color }) {
 
   const body = bodyLines.join("\n");
 
-  return `${formattedSubject}\n${paint(body, [ANSI.orange], color)}`;
+  return `${formattedSubject}\n${paint(body, [ANSI.lightGreen], color)}`;
 }
 
 function paint(value, codes, enabled) {

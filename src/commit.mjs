@@ -198,7 +198,9 @@ export async function runCommitWorkflow(
       if (!stageEverything) {
         io.stderr.write("Checking for all changes...\n");
         found = await hasChanges({ cwd });
-        io.stderr.write(`${formatChangesStatus(found, { output: io.stderr })}\n`);
+        io.stderr.write(
+          `${formatChangesStatus(found, { output: io.stderr })}\n`,
+        );
       }
 
       if (!found) {
@@ -339,6 +341,16 @@ export async function runCommitWorkflow(
 
         if (result?.stdout) {
           io.stdout.write(result.stdout);
+        }
+
+        try {
+          if (await hasChanges({ cwd })) {
+            io.stderr.write(
+              "\nYou still have unstaged changes. Run again to commit those as well.\n",
+            );
+          }
+        } catch {
+          // Best-effort notice; a successful commit must never be reported as failed.
         }
 
         return 0;

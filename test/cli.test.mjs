@@ -273,6 +273,9 @@ test("generates and commits a message with the commit command", async () => {
       onStatus({ phase: "generating" });
       return "feat(cli): generate staged commit messages";
     },
+    async hasChanges() {
+      return false;
+    },
   });
 
   assert.equal(status, 0);
@@ -334,6 +337,9 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
     async generate() {
       return "feat(cli): report local inference usage";
     },
+    async hasChanges() {
+      return false;
+    },
     async loadConfig() {
       return { autoStageAll: false, showUsageSummary: true };
     },
@@ -382,6 +388,9 @@ test("hides the usage summary by default", async () => {
     async generate() {
       return "feat(cli): default to a quiet usage summary";
     },
+    async hasChanges() {
+      return false;
+    },
     async loadConfig() {
       return { autoStageAll: false, showUsageSummary: false };
     },
@@ -421,6 +430,9 @@ test("commits the approved generated message", async () => {
       calls.push(["generate"]);
       return message;
     },
+    async hasChanges() {
+      return false;
+    },
     async promptGeneratedCommit(options) {
       calls.push(["prompt", options.message]);
       return "commit";
@@ -439,6 +451,67 @@ test("commits the approved generated message", async () => {
     "[branch abc1234] feat(cli): review generated commits\n",
   );
   assert.match(stderr, /^\$ git commit --message/);
+  assert.doesNotMatch(stderr, /unstaged changes/);
+});
+
+test("notes leftover unstaged changes after committing", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write: (value) => (stdout += value) },
+    stderr: { isTTY: true, write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["commit"], io, {
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
+    async generate() {
+      return "feat(cli): review generated commits";
+    },
+    async hasChanges() {
+      return true;
+    },
+    async promptGeneratedCommit() {
+      return "commit";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.match(
+    stderr,
+    /You still have unstaged changes\. Run again to commit those as well\.\n$/,
+  );
+});
+
+test("does not fail the commit when the leftover-changes check errors", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write: (value) => (stdout += value) },
+    stderr: { isTTY: true, write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["commit"], io, {
+    async commitChanges() {
+      return { stdout: "committed\n", stderr: "" };
+    },
+    async generate() {
+      return "feat(cli): review generated commits";
+    },
+    async hasChanges() {
+      throw new Error("git status failed");
+    },
+    async promptGeneratedCommit() {
+      return "commit";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.match(stdout, /committed/);
+  assert.doesNotMatch(stderr, /unstaged changes/);
 });
 
 test("commit command reviews and commits the generated message", async () => {
@@ -477,6 +550,9 @@ test("commit command reviews and commits the generated message", async () => {
     },
     async generate() {
       return message;
+    },
+    async hasChanges() {
+      return false;
     },
     async promptGeneratedCommit({ message: proposal }) {
       assert.equal(proposal, message);
@@ -537,6 +613,9 @@ test("commit --all --yes stages, commits, and forwards Git arguments", async () 
       async generate() {
         calls.push(["generate"]);
         return message;
+      },
+      async hasChanges() {
+        return false;
       },
       async promptGeneratedCommit() {
         throw new Error("automatic confirmation must not prompt");
@@ -678,6 +757,9 @@ test("generates again before committing the replacement message", async () => {
       runtimes.push(runtime);
       return messages[generateCalls++];
     },
+    async hasChanges() {
+      return false;
+    },
     async promptGeneratedCommit() {
       return actions.shift();
     },
@@ -725,6 +807,9 @@ test("keeps the previous message when regeneration keeps repeating it", async ()
       }
 
       throw new InvalidModelOutputError("message repeats a previous proposal.");
+    },
+    async hasChanges() {
+      return false;
     },
     async promptGeneratedCommit() {
       return actions.shift();
@@ -835,6 +920,8 @@ test("can stage all changes and retry generation", async () => {
       "Loading local model...",
       "Generating commit message",
       "$ git commit --message 'feat(cli): stage changes before generation' --",
+      "",
+      "You still have unstaged changes. Run again to commit those as well.",
       "",
     ].join("\n"),
   );
@@ -985,10 +1072,7 @@ test("aborts a clean tree without showing the staging menu", async () => {
 
   assert.equal(status, 1);
   assert.equal(promptCalls, 0);
-  assert.equal(
-    stderr,
-    "Not found!\nChecking for all changes...\nNot found!\n",
-  );
+  assert.equal(stderr, "Not found!\nChecking for all changes...\nNot found!\n");
 });
 
 test("dispatches gitkum config to the config command", async () => {

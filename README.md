@@ -154,6 +154,10 @@ loaded local model and excludes the last three proposals from subsequent
 answers. In non-interactive use, `gitkum commit --yes` accepts the first
 generated message and creates the commit.
 
+`gitkum` only ever generates from what was staged at the start of the run. If
+the working tree still has unstaged or untracked changes after a successful
+commit, it prints a reminder to run `gitkum commit` again for those.
+
 ## Cache
 
 The verified model is stored at:
