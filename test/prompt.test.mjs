@@ -37,6 +37,26 @@ test("defines the grammar-constrained response shape", () => {
     "body",
   ]);
   assert.equal(COMMIT_OUTPUT_SCHEMA.properties.subject.maxLength, 72);
+  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.maxLength, 400);
+  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.type, "string");
+});
+
+test("asks for a commit body only when it adds useful context", () => {
+  const prompt = buildCommitPrompt(context);
+
+  assert.match(prompt, /body.*at most 400 characters/i);
+  assert.match(prompt, /empty string when the subject/i);
+  assert.doesNotMatch(prompt, /body.*always an empty string/i);
+});
+
+test("asks regeneration to avoid recent proposals", () => {
+  const prompt = buildCommitPrompt(context, {
+    previousMessages: ["feat(cli): review generated commits"],
+  });
+
+  assert.match(prompt, /previousProposals/);
+  assert.match(prompt, /feat\(cli\): review generated commits/);
+  assert.match(prompt, /do not repeat/i);
 });
 
 test("builds a repair prompt from validation feedback", () => {

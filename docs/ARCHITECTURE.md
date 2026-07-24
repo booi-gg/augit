@@ -15,9 +15,9 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
 ## Components
 
 - `src/git.mjs` runs Git directly with `spawn`, collects only the index, caps
-  buffered output, and stages the worktree only after an explicit CLI choice.
-- `src/interactive.mjs` owns the terminal-only prompt shown when the index is
-  empty.
+  buffered output, and stages or commits only after an explicit CLI choice.
+- `src/interactive.mjs` owns the terminal-only prompts for an empty index and
+  generated-message review.
 - `src/sanitize.mjs` normalizes control characters, bounds every input class,
   and redacts common credential formats.
 - `src/prompt.mjs` serializes evidence as JSON and defines the grammar schema.
@@ -29,8 +29,8 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
   the Conventional Commit contract.
 - `src/generate.mjs` orchestrates the pipeline and retries one invalid model
   answer with validation feedback.
-- `src/index.mjs` exposes the library surface and keeps CLI diagnostics on
-  standard error.
+- `src/index.mjs` exposes the library surface, coordinates regenerate and
+  commit actions, and keeps CLI diagnostics on standard error.
 
 ## Trust boundaries
 

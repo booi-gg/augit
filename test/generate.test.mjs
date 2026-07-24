@@ -72,6 +72,38 @@ test("retries one invalid model response with validation feedback", async () => 
   assert.match(prompts[1], /previous answer was invalid/i);
 });
 
+test("regeneration rejects and repairs a repeated proposal", async () => {
+  const previousMessage = "feat(cli): review generated commits";
+  const prompts = [];
+  const runtime = {
+    async generate({ prompt }) {
+      prompts.push(prompt);
+
+      if (prompts.length === 1) {
+        return { subject: previousMessage, body: "" };
+      }
+
+      return {
+        subject: "feat(cli): confirm generated commits",
+        body: "",
+      };
+    },
+  };
+
+  const result = await generateCommit({
+    collector: async () => fixtureContext(),
+    ensureModel: async () => ({ path: "/cache/model.gguf" }),
+    previousMessages: [previousMessage],
+    runtime,
+  });
+
+  assert.equal(result.message, "feat(cli): confirm generated commits");
+  assert.equal(prompts.length, 2);
+  assert.match(prompts[0], /previousProposals/);
+  assert.match(prompts[0], /review generated commits/);
+  assert.match(prompts[1], /repeats a previous proposal/i);
+});
+
 test("disposes a runtime that it creates", async () => {
   let disposed = 0;
   const message = await generateCommitMessage({

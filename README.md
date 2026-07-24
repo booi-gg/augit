@@ -5,8 +5,8 @@ small local language model.
 
 `gitkum` sends no source code to a hosted inference service. It collects the
 staged Git diff, removes common credential patterns, bounds the prompt, runs a
-curated GGUF model locally, and prints the validated message to standard
-output.
+curated GGUF model locally, and lets you commit, generate another message, or
+cancel from an interactive review menu.
 
 ## Requirements
 
@@ -36,21 +36,32 @@ transferred bytes and percentage while it downloads.
 Downloading model [############------------]  50%  559 MB / 1.12 GB
 ```
 
-Example output:
+Example interactive output:
 
 ```text
+Generated commit message:
+
 feat(cli): generate commit messages from staged changes
+
+❯ Commit
+  Generate again
+  Cancel
 ```
 
-Progress and diagnostics go to standard error, so standard output can be used
-directly:
+Use the up and down arrow keys to choose an action and press Enter. Commit
+writes the staged changes immediately with the complete generated message,
+including its body when one is useful. Generate again replaces the proposal,
+and Cancel leaves the staged changes untouched.
+
+When standard output is redirected, `gitkum` skips the menu and prints only
+the generated message. This keeps command substitution available:
 
 ```sh
 git commit -m "$(node bin/cli.mjs)"
 ```
 
-Review generated messages before committing. A small local model can still
-misinterpret an unusual or very large change.
+A small local model can still misinterpret an unusual or very large change, so
+review the proposal before selecting Commit.
 
 ## CLI
 
@@ -95,6 +106,11 @@ If no changes are staged in an interactive terminal, the command offers to
 stage all tracked and untracked changes and continue, or to cancel. Selecting
 cancel leaves the index untouched. In non-interactive use, the command exits
 without downloading or loading the model.
+
+After generation in an interactive terminal, the command shows the optional
+body and offers Commit, Generate again, and Cancel. Regeneration reuses the
+loaded local model. In non-interactive use, the command prints the generated
+message without creating a commit.
 
 ## Cache
 

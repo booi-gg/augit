@@ -217,6 +217,152 @@ test("generates a commit message with no arguments", async () => {
   assert.match(stderr, /Generating commit message/);
 });
 
+test("prints only the message when standard output is redirected", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: {
+      isTTY: false,
+      write: (value) => (stdout += value),
+    },
+    stderr: {
+      isTTY: true,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run([], io, {
+    async generate() {
+      return "feat(cli): preserve command substitution";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(stdout, "feat(cli): preserve command substitution\n");
+  assert.equal(stderr, "");
+});
+
+test("commits the approved generated message", async () => {
+  const message =
+    "feat(cli): review generated commits\n\n" +
+    "Let developers approve the message before Git writes it.";
+  const calls = [];
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: {},
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run([], io, {
+    cwd: "/worktree",
+    async commitChanges(options) {
+      calls.push(["commit", options]);
+      return {
+        stdout: "[branch abc1234] feat(cli): review generated commits\n",
+        stderr: "",
+      };
+    },
+    async generate() {
+      calls.push(["generate"]);
+      return message;
+    },
+    async promptGeneratedCommit(options) {
+      calls.push(["prompt", options.message]);
+      return "commit";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(calls[1][1], message);
+  assert.deepEqual(calls[2][1], {
+    cwd: "/worktree",
+    message,
+  });
+  assert.equal(
+    stdout,
+    "[branch abc1234] feat(cli): review generated commits\n",
+  );
+  assert.equal(stderr, "");
+});
+
+test("generates again before committing the replacement message", async () => {
+  const messages = [
+    "feat(cli): add generated commit menu",
+    "feat(cli): review generated commits",
+  ];
+  const actions = ["regenerate", "commit"];
+  const committed = [];
+  const previousMessageSets = [];
+  const runtimes = [];
+  let disposed = 0;
+  let generateCalls = 0;
+  const io = {
+    stdin: {},
+    stdout: { write() {} },
+    stderr: { write() {} },
+  };
+
+  const status = await run([], io, {
+    async commitChanges({ message }) {
+      committed.push(message);
+      return { stdout: "", stderr: "" };
+    },
+    createRuntime() {
+      return {
+        async dispose() {
+          disposed += 1;
+        },
+      };
+    },
+    async generate({ previousMessages, runtime }) {
+      previousMessageSets.push(previousMessages);
+      runtimes.push(runtime);
+      return messages[generateCalls++];
+    },
+    async promptGeneratedCommit() {
+      return actions.shift();
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(generateCalls, 2);
+  assert.deepEqual(committed, [messages[1]]);
+  assert.deepEqual(previousMessageSets, [undefined, [messages[0]]]);
+  assert.equal(runtimes[0], runtimes[1]);
+  assert.equal(disposed, 1);
+});
+
+test("cancels without committing the generated message", async () => {
+  let commitCalls = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: {},
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run([], io, {
+    async commitChanges() {
+      commitCalls += 1;
+    },
+    async generate() {
+      return "feat(cli): review generated commits";
+    },
+    async promptGeneratedCommit() {
+      return "cancel";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(commitCalls, 0);
+  assert.equal(stdout, "");
+  assert.equal(stderr, "Cancelled.\n");
+});
+
 test("can stage all changes and retry generation", async () => {
   let generateCalls = 0;
   let promptCalls = 0;

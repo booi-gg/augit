@@ -1,6 +1,20 @@
 import { emitKeypressEvents } from "node:readline";
 
-const choices = [
+const generatedCommitChoices = [
+  {
+    label: "Commit",
+    value: "commit",
+  },
+  {
+    label: "Generate again",
+    value: "regenerate",
+  },
+  {
+    label: "Cancel",
+    value: "cancel",
+  },
+];
+const noStagedChangesChoices = [
   {
     label: "Stage all changes and continue",
     value: "stage",
@@ -11,25 +25,56 @@ const choices = [
   },
 ];
 
+export async function promptForGeneratedCommit({
+  input = process.stdin,
+  message,
+  output = process.stderr,
+} = {}) {
+  return promptForChoice({
+    choices: generatedCommitChoices,
+    initialSelection: 0,
+    input,
+    introduction:
+      `Generated commit message:\n\n${message}\n\n` +
+      "Use the up and down arrow keys to select, then press Enter.\n",
+    output,
+  });
+}
+
 export async function promptForNoStagedChanges({
   input = process.stdin,
   output = process.stderr,
 } = {}) {
+  return promptForChoice({
+    choices: noStagedChangesChoices,
+    initialSelection: noStagedChangesChoices.length - 1,
+    input,
+    introduction:
+      "No staged changes found.\n" +
+      "Use the up and down arrow keys to select, then press Enter.\n",
+    output,
+  });
+}
+
+async function promptForChoice({
+  choices,
+  initialSelection,
+  input,
+  introduction,
+  output,
+}) {
   if (!input?.isTTY || !output?.isTTY) {
     return null;
   }
 
-  let selectedIndex = choices.length - 1;
+  let selectedIndex = initialSelection;
   const wasPaused = input.isPaused?.() ?? true;
   const wasRaw = Boolean(input.isRaw);
 
   emitKeypressEvents(input);
 
-  output.write(
-    "No staged changes found.\n" +
-      "Use the up and down arrow keys to select, then press Enter.\n",
-  );
-  renderChoices(output, selectedIndex);
+  output.write(introduction);
+  renderChoices(output, choices, selectedIndex);
 
   return new Promise((resolve, reject) => {
     const finish = (value) => {
@@ -61,7 +106,7 @@ export async function promptForNoStagedChanges({
       }
 
       if (selectedIndex !== previousIndex) {
-        renderChoices(output, selectedIndex, { redraw: true });
+        renderChoices(output, choices, selectedIndex, { redraw: true });
       }
     };
     const cleanup = () => {
@@ -90,7 +135,12 @@ export async function promptForNoStagedChanges({
   });
 }
 
-function renderChoices(output, selectedIndex, { redraw = false } = {}) {
+function renderChoices(
+  output,
+  choices,
+  selectedIndex,
+  { redraw = false } = {},
+) {
   if (redraw) {
     output.write(`\u001B[${choices.length}A`);
   }

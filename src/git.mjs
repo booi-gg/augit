@@ -95,6 +95,17 @@ export async function stageAllChanges({ cwd = process.cwd() } = {}) {
   await runGit(["add", "--all", "--"], { cwd });
 }
 
+export async function commitStagedChanges({
+  cwd = process.cwd(),
+  message,
+} = {}) {
+  if (typeof message !== "string" || !message.trim()) {
+    throw new TypeError("A non-empty commit message is required.");
+  }
+
+  return runGit(["commit", "--message", message, "--"], { cwd });
+}
+
 export function parseNameStatus(value, { truncated = false } = {}) {
   const tokens = value.split("\0");
 
