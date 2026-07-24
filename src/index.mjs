@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 import { generateCommitMessage } from "./generate.mjs";
+import { stageAllChanges } from "./git.mjs";
+import { promptForNoStagedChanges } from "./interactive.mjs";
 import {
   BUILT_IN_MODEL,
   clearBuiltInModel,
@@ -22,6 +24,7 @@ Options:
   -v, --version         Show version
 
 Run without options to generate a message from staged changes.
+If none are staged in an interactive terminal, gitkum can stage all changes.
 The built-in model is selected automatically; model selection is not exposed.
 `;
 
@@ -37,6 +40,7 @@ export {
   NoStagedChangesError,
   NotGitRepositoryError,
   collectStagedChanges,
+  stageAllChanges,
 } from "./git.mjs";
 export { generateCommit, generateCommitMessage } from "./generate.mjs";
 export { InvalidModelOutputError, normalizeCommitMessage } from "./output.mjs";
@@ -51,6 +55,8 @@ export async function run(
     cwd = process.cwd(),
     ensureModel = ensureBuiltInModel,
     generate = generateCommitMessage,
+    promptNoStagedChanges = promptForNoStagedChanges,
+    stageChanges = stageAllChanges,
   } = {},
 ) {
   if (args.length === 1 && (args[0] === "--version" || args[0] === "-v")) {
@@ -61,25 +67,21 @@ export async function run(
   }
 
   if (args.length === 1 && args[0] === "--download-model") {
-    let lastProgress = -1;
+    const modelProgress = createProgressWriter(io);
 
     io.stderr.write(`Preparing ${BUILT_IN_MODEL.name}...\n`);
 
     try {
       const result = await ensureModel({
-        onProgress: createProgressWriter(
-          io,
-          () => lastProgress,
-          (value) => {
-            lastProgress = value;
-          },
-        ),
+        onProgress: modelProgress,
       });
       const state = result.downloaded ? "downloaded" : "already cached";
 
+      modelProgress.end();
       io.stdout.write(`Built-in model ready (${state}): ${result.path}\n`);
       return 0;
     } catch (error) {
+      modelProgress.end();
       io.stderr.write(`${error.message}\n`);
       return 1;
     }
@@ -111,19 +113,13 @@ export async function run(
     return 2;
   }
 
-  let lastProgress = -1;
   let lastPhase;
+  const modelProgress = createProgressWriter(io);
 
   try {
-    const message = await generate({
+    const generationOptions = {
       cwd,
-      onModelProgress: createProgressWriter(
-        io,
-        () => lastProgress,
-        (value) => {
-          lastProgress = value;
-        },
-      ),
+      onModelProgress: modelProgress,
       onStatus({ phase }) {
         if (phase === lastPhase) {
           return;
@@ -136,31 +132,122 @@ export async function run(
         } else if (phase === "loading-model") {
           io.stderr.write("Loading local model...\n");
         } else if (phase === "generating") {
+          modelProgress.end();
           io.stderr.write("Generating commit message...\n");
         }
       },
-    });
+    };
+    let message;
 
+    try {
+      message = await generate(generationOptions);
+    } catch (error) {
+      if (error?.code !== "NO_STAGED_CHANGES") {
+        throw error;
+      }
+
+      const action = await promptNoStagedChanges({
+        input: io.stdin,
+        output: io.stderr,
+      });
+
+      if (action === null) {
+        throw error;
+      }
+
+      if (action !== "stage") {
+        io.stderr.write("Cancelled.\n");
+        return 0;
+      }
+
+      io.stderr.write("Staging all changes...\n");
+      await stageChanges({ cwd });
+      lastPhase = undefined;
+      message = await generate(generationOptions);
+    }
+
+    modelProgress.end();
     io.stdout.write(`${message}\n`);
     return 0;
   } catch (error) {
+    modelProgress.end();
     io.stderr.write(`${error?.message || String(error)}\n`);
     return 1;
   }
 }
 
-function createProgressWriter(io, getLastProgress, setLastProgress) {
-  return ({ downloaded, total }) => {
-    if (!Number.isFinite(total) || total <= 0) {
+function createProgressWriter(io) {
+  const barWidth = 24;
+  const isInteractive = Boolean(io.stderr?.isTTY);
+  const milestoneSize = isInteractive ? 1 : 5;
+  let lastLineLength = 0;
+  let lastMilestone = -1;
+  let lineOpen = false;
+
+  const writeProgress = ({ downloaded, total }) => {
+    if (!Number.isFinite(downloaded) || !Number.isFinite(total) || total <= 0) {
       return;
     }
 
-    const progress = Math.floor((downloaded / total) * 100);
-    const milestone = Math.floor(progress / 5) * 5;
+    const boundedDownloaded = Math.min(Math.max(downloaded, 0), total);
+    const progress = Math.floor((boundedDownloaded / total) * 100);
+    const milestone =
+      progress === 100
+        ? 100
+        : Math.floor(progress / milestoneSize) * milestoneSize;
 
-    if (milestone > getLastProgress() && milestone < 100) {
-      setLastProgress(milestone);
-      io.stderr.write(`Downloading built-in model: ${milestone}%\n`);
+    if (milestone <= lastMilestone) {
+      return;
+    }
+
+    lastMilestone = milestone;
+
+    const filled = Math.round((milestone / 100) * barWidth);
+    const bar = `${"#".repeat(filled)}${"-".repeat(barWidth - filled)}`;
+    const line =
+      `Downloading model [${bar}] ${String(milestone).padStart(3)}%  ` +
+      `${formatBytes(boundedDownloaded)} / ${formatBytes(total)}`;
+
+    if (!isInteractive) {
+      io.stderr.write(`${line}\n`);
+      return;
+    }
+
+    const padding = " ".repeat(Math.max(0, lastLineLength - line.length));
+
+    io.stderr.write(`\r${line}${padding}`);
+    lastLineLength = line.length;
+    lineOpen = milestone < 100;
+
+    if (!lineOpen) {
+      io.stderr.write("\n");
+      lastLineLength = 0;
     }
   };
+
+  writeProgress.end = () => {
+    if (lineOpen) {
+      io.stderr.write("\n");
+      lastLineLength = 0;
+      lineOpen = false;
+    }
+  };
+
+  return writeProgress;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1_000) {
+    return `${Math.floor(bytes)} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1_000)) - 1,
+    units.length - 1,
+  );
+  const value = bytes / 1_000 ** (unitIndex + 1);
+  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+
+  return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
 }

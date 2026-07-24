@@ -3,7 +3,11 @@ import { writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { test } from "node:test";
 
-import { NoStagedChangesError, collectStagedChanges } from "../src/git.mjs";
+import {
+  NoStagedChangesError,
+  collectStagedChanges,
+  stageAllChanges,
+} from "../src/git.mjs";
 import { createRepository, git } from "../support/git-fixture.mjs";
 
 test("collects only staged changes and recent commit style", async (t) => {
@@ -53,6 +57,21 @@ test("reports when there are no staged changes", async (t) => {
       error instanceof NoStagedChangesError &&
       error.code === "NO_STAGED_CHANGES",
   );
+});
+
+test("stages all tracked and untracked changes", async (t) => {
+  const directory = await createRepository(t);
+
+  await writeFile(join(directory, "README.md"), "# changed\n");
+  await writeFile(join(directory, "untracked.txt"), "new\n");
+  await stageAllChanges({ cwd: directory });
+
+  const context = await collectStagedChanges({ cwd: directory });
+
+  assert.deepEqual(context.files, [
+    { status: "M", path: "README.md" },
+    { status: "A", path: "untracked.txt" },
+  ]);
 });
 
 test("bounds oversized diffs without dropping file status", async (t) => {

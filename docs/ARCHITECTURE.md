@@ -14,8 +14,10 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
 
 ## Components
 
-- `src/git.mjs` runs Git directly with `spawn`, collects only the index, and
-  caps buffered output.
+- `src/git.mjs` runs Git directly with `spawn`, collects only the index, caps
+  buffered output, and stages the worktree only after an explicit CLI choice.
+- `src/interactive.mjs` owns the terminal-only prompt shown when the index is
+  empty.
 - `src/sanitize.mjs` normalizes control characters, bounds every input class,
   and redacts common credential formats.
 - `src/prompt.mjs` serializes evidence as JSON and defines the grammar schema.

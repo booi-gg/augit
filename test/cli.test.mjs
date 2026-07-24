@@ -43,7 +43,9 @@ test("downloads the single built-in model without asking for a choice", async ()
   const status = await run(["--download-model"], io, {
     async ensureModel({ onProgress }) {
       calls += 1;
+      onProgress({ downloaded: 0, total: 10 });
       onProgress({ downloaded: 5, total: 10 });
+      onProgress({ downloaded: 10, total: 10 });
       return { downloaded: true, path: "/cache/built-in.gguf" };
     },
   });
@@ -51,8 +53,46 @@ test("downloads the single built-in model without asking for a choice", async ()
   assert.equal(status, 0);
   assert.equal(calls, 1);
   assert.match(stderr, /Preparing Qwen2\.5-Coder/);
+  assert.match(stderr, /\[############------------\]/);
   assert.match(stderr, /50%/);
+  assert.match(stderr, /\[########################\]/);
+  assert.match(stderr, /100%/);
   assert.match(stdout, /ready \(downloaded\): \/cache\/built-in\.gguf/);
+});
+
+test("redraws download progress on one line in a terminal", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: {
+      isTTY: true,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run(["--download-model"], io, {
+    async ensureModel({ onProgress }) {
+      onProgress({ downloaded: 0, total: 1_000_000_000 });
+      onProgress({ downloaded: 500_000_000, total: 1_000_000_000 });
+      onProgress({
+        downloaded: 1_000_000_000,
+        total: 1_000_000_000,
+      });
+      return { downloaded: true, path: "/cache/built-in.gguf" };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.match(
+    stderr,
+    /\rDownloading model \[############------------\]\s+50%\s+500 MB \/ 1\.00 GB/,
+  );
+  assert.match(
+    stderr,
+    /\rDownloading model \[########################\]\s+100%\s+1\.00 GB \/ 1\.00 GB\n$/,
+  );
+  assert.match(stdout, /ready \(downloaded\)/);
 });
 
 test("clears the downloaded built-in model", async () => {
@@ -116,6 +156,78 @@ test("generates a commit message with no arguments", async () => {
   assert.match(stderr, /Collecting staged changes/);
   assert.match(stderr, /Loading local model/);
   assert.match(stderr, /Generating commit message/);
+});
+
+test("can stage all changes and retry generation", async () => {
+  let generateCalls = 0;
+  let promptCalls = 0;
+  let stageCalls = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run([], io, {
+    cwd: "/worktree",
+    async generate({ onStatus }) {
+      generateCalls += 1;
+      onStatus({ phase: "collecting" });
+
+      if (generateCalls === 1) {
+        const error = new Error("No staged changes found.");
+        error.code = "NO_STAGED_CHANGES";
+        throw error;
+      }
+
+      return "feat(cli): stage changes before generation";
+    },
+    async promptNoStagedChanges() {
+      promptCalls += 1;
+      return "stage";
+    },
+    async stageChanges({ cwd }) {
+      stageCalls += 1;
+      assert.equal(cwd, "/worktree");
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(generateCalls, 2);
+  assert.equal(promptCalls, 1);
+  assert.equal(stageCalls, 1);
+  assert.equal(stdout, "feat(cli): stage changes before generation\n");
+  assert.match(stderr, /Staging all changes/);
+});
+
+test("can cancel without staging changes", async () => {
+  let stageCalls = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run([], io, {
+    async generate() {
+      const error = new Error("No staged changes found.");
+      error.code = "NO_STAGED_CHANGES";
+      throw error;
+    },
+    async promptNoStagedChanges() {
+      return "cancel";
+    },
+    async stageChanges() {
+      stageCalls += 1;
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(stageCalls, 0);
+  assert.equal(stdout, "");
+  assert.equal(stderr, "Cancelled.\n");
 });
 
 test("rejects unknown options", async () => {
