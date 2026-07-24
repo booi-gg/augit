@@ -24,7 +24,7 @@ test("shows the generated message and defaults to committing", async () => {
     output,
   });
 
-  input.end("\r");
+  input.write("\r");
 
   assert.equal(await answer, "commit");
   const plainDisplay = stripAnsi(displayed);
@@ -39,6 +39,9 @@ test("shows the generated message and defaults to committing", async () => {
   assert.match(displayed, /\u001B\[36m\(cli\)\u001B\[0m/);
   assert.match(displayed, /\u001B\[1;32m❯\u001B\[0m/);
   assert.deepEqual(input.rawModeChanges, [true, false]);
+  assert.equal(input.isPaused(), true);
+
+  input.destroy();
 });
 
 test("selects Generate again with the down arrow", async () => {
@@ -120,7 +123,7 @@ test("can render the review without ANSI color", async () => {
   assert.doesNotMatch(displayed, /\u001B\[(?:1;)?(?:3[0-9]|90)m/);
 });
 
-test("selects stage with the up arrow and Enter", async () => {
+test("shows the no-staged menu and defaults to staging", async () => {
   const input = createTtyStream();
   const output = createTtyStream();
   let displayed = "";
@@ -131,24 +134,16 @@ test("selects stage with the up arrow and Enter", async () => {
 
   const answer = promptForNoStagedChanges({ input, output });
 
-  input.end("\u001B[A\r");
+  input.write("\r");
 
   assert.equal(await answer, "stage");
-  assert.match(displayed, /up and down arrow keys/);
-  assert.match(displayed, /Stage all changes and continue/);
+  assert.match(displayed, /up and down arrow keys/i);
+  assert.match(displayed, /❯ Stage all changes and continue/);
   assert.match(displayed, /Cancel/);
   assert.deepEqual(input.rawModeChanges, [true, false]);
-});
+  assert.equal(input.isPaused(), true);
 
-test("defaults to cancelling when Enter is pressed", async () => {
-  const input = createTtyStream();
-  const output = createTtyStream();
-
-  const answer = promptForNoStagedChanges({ input, output });
-
-  input.end("\r");
-
-  assert.equal(await answer, "cancel");
+  input.destroy();
 });
 
 test("moves down from stage to cancel", async () => {
@@ -157,7 +152,7 @@ test("moves down from stage to cancel", async () => {
 
   const answer = promptForNoStagedChanges({ input, output });
 
-  input.end("\u001B[A\u001B[B\r");
+  input.end("\u001B[B\r");
 
   assert.equal(await answer, "cancel");
 });

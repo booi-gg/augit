@@ -84,7 +84,7 @@ export async function promptForNoStagedChanges({
 
   return promptForChoice({
     choices: noStagedChangesChoices,
-    initialSelection: noStagedChangesChoices.length - 1,
+    initialSelection: 0,
     input,
     introduction:
       "No staged changes found.\n" +
@@ -107,7 +107,6 @@ async function promptForChoice({
   }
 
   let selectedIndex = initialSelection;
-  const wasPaused = input.isPaused?.() ?? true;
   const wasRaw = Boolean(input.isRaw);
 
   emitKeypressEvents(input);
@@ -160,9 +159,7 @@ async function promptForChoice({
         input.setRawMode(false);
       }
 
-      if (wasPaused) {
-        input.pause?.();
-      }
+      input.pause?.();
     };
 
     input.on("keypress", onKeypress);
