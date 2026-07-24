@@ -45,7 +45,11 @@ test("asks for a commit body only when it adds useful context", () => {
   const prompt = buildCommitPrompt(context);
 
   assert.match(prompt, /body.*at most 400 characters/i);
-  assert.match(prompt, /empty string when the subject/i);
+  assert.match(prompt, /default to an empty string/i);
+  assert.match(prompt, /one focused change.*body must be empty/is);
+  assert.match(prompt, /every body line.*72 characters/i);
+  assert.match(prompt, /changelog lines/i);
+  assert.match(prompt, /never truncate a name, flag, or version/i);
   assert.doesNotMatch(prompt, /body.*always an empty string/i);
 });
 

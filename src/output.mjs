@@ -11,8 +11,85 @@ const ALLOWED_TYPES = new Set([
   "style",
   "test",
 ]);
-const MAX_SUBJECT_LENGTH = 72;
-const MAX_BODY_LENGTH = 400;
+export const TARGET_SUBJECT_LENGTH = 50;
+export const MAX_SUBJECT_LENGTH = 72;
+export const MAX_BODY_LENGTH = 400;
+export const MAX_BODY_LINE_LENGTH = 72;
+const GENERIC_BODY_WORDS = new Set([
+  "align",
+  "aligned",
+  "alignment",
+  "appropriate",
+  "better",
+  "change",
+  "changed",
+  "changes",
+  "clear",
+  "clearly",
+  "code",
+  "coded",
+  "correctly",
+  "enhance",
+  "enhanced",
+  "ensure",
+  "ensures",
+  "ensuring",
+  "help",
+  "helps",
+  "improve",
+  "improved",
+  "improves",
+  "maintainability",
+  "new",
+  "now",
+  "overall",
+  "organization",
+  "project",
+  "properly",
+  "provide",
+  "provides",
+  "purpose",
+  "reflect",
+  "reflects",
+  "rename",
+  "renamed",
+  "scope",
+  "support",
+  "supports",
+  "update",
+  "updated",
+]);
+const TOKEN_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "been",
+  "being",
+  "by",
+  "for",
+  "from",
+  "has",
+  "have",
+  "in",
+  "is",
+  "it",
+  "its",
+  "of",
+  "on",
+  "or",
+  "s",
+  "that",
+  "the",
+  "this",
+  "to",
+  "was",
+  "were",
+  "with",
+]);
 
 export class InvalidModelOutputError extends Error {
   constructor(message, options) {
@@ -36,8 +113,10 @@ export function normalizeCommitMessage(value, { requiredType } = {}) {
   const subject = normalizeSubject(output.subject, { requiredType });
   let body = normalizeBody(output.body || "");
 
-  if (body.toLocaleLowerCase() === subject.toLocaleLowerCase()) {
+  if (isRedundantBody(subject, body)) {
     body = "";
+  } else {
+    body = wrapBody(body);
   }
 
   return {
@@ -142,6 +221,16 @@ function normalizeSubject(value, { requiredType } = {}) {
   }
 
   if (
+    /^(?:added|adds|adding|changed|changes|changing|created|creates|creating|fixed|fixes|fixing|removed|removes|removing|renamed|renames|renaming|updated|updates|updating)\b/i.test(
+      description,
+    )
+  ) {
+    throw new InvalidModelOutputError(
+      "subject description must start with an imperative verb.",
+    );
+  }
+
+  if (
     type === "test" &&
     /^(?:add|create|write) (?:a )?tests?\b/i.test(description)
   ) {
@@ -191,6 +280,158 @@ function normalizeBody(value) {
   }
 
   return normalized;
+}
+
+function isRedundantBody(subject, body) {
+  if (!body) {
+    return false;
+  }
+
+  if (/^BREAKING[ -]CHANGE:/im.test(body)) {
+    return false;
+  }
+
+  if (body.toLocaleLowerCase() === subject.toLocaleLowerCase()) {
+    return true;
+  }
+
+  const subjectMatch =
+    /^(?:[a-z]+)(?:\((?<scope>[^)]+)\))?!?: (?<description>.+)$/i.exec(subject);
+
+  if (!subjectMatch) {
+    return false;
+  }
+
+  const subjectTokens = tokenize(
+    `${subjectMatch.groups.scope || ""} ${subjectMatch.groups.description}`,
+  );
+  const bodyTokens = tokenize(body);
+
+  if (subjectTokens.length === 0 || bodyTokens.length === 0) {
+    return false;
+  }
+
+  const matchedSubjectTokens = subjectTokens.filter((subjectToken) =>
+    bodyTokens.some((bodyToken) => tokensMatch(subjectToken, bodyToken)),
+  );
+  const novelBodyTokens = bodyTokens.filter(
+    (bodyToken) =>
+      !subjectTokens.some((subjectToken) =>
+        tokensMatch(subjectToken, bodyToken),
+      ) && !GENERIC_BODY_WORDS.has(bodyToken),
+  );
+  const subjectCoverage = matchedSubjectTokens.length / subjectTokens.length;
+  const startsWithBoilerplate =
+    /^(?:this (?:commit|change|update)\b|the .{0,80}\b(?:has|have|is|are|was|were)(?: been)?\b)/i.test(
+      body,
+    );
+
+  return (
+    subjectCoverage >= 0.75 &&
+    (startsWithBoilerplate || novelBodyTokens.length <= 1)
+  );
+}
+
+function tokenize(value) {
+  return (
+    value.toLocaleLowerCase().match(/[\p{L}\p{N}@][\p{L}\p{N}@._/-]*/gu) || []
+  )
+    .map((token) => token.replace(/^[._/-]+|[._/-]+$/g, ""))
+    .filter((token) => token && !TOKEN_STOP_WORDS.has(token));
+}
+
+function tokensMatch(left, right) {
+  if (left === right) {
+    return true;
+  }
+
+  return tokenForms(left).has(right) || tokenForms(right).has(left);
+}
+
+function tokenForms(token) {
+  const forms = new Set([token]);
+
+  if (token.length > 4 && token.endsWith("ies")) {
+    forms.add(`${token.slice(0, -3)}y`);
+  }
+
+  if (token.length > 4 && token.endsWith("ied")) {
+    forms.add(`${token.slice(0, -3)}y`);
+  }
+
+  if (token.length > 4 && token.endsWith("ing")) {
+    forms.add(token.slice(0, -3));
+    forms.add(`${token.slice(0, -3)}e`);
+  }
+
+  if (token.length > 3 && token.endsWith("ed")) {
+    forms.add(token.slice(0, -2));
+    forms.add(token.slice(0, -1));
+  }
+
+  if (token.length > 3 && token.endsWith("s")) {
+    forms.add(token.slice(0, -1));
+  }
+
+  return forms;
+}
+
+function wrapBody(value) {
+  if (!value) {
+    return "";
+  }
+
+  const wrapped = value
+    .split("\n")
+    .flatMap((line) => wrapBodyLine(line))
+    .join("\n");
+
+  if (wrapped.length > MAX_BODY_LENGTH) {
+    throw new InvalidModelOutputError(
+      `body exceeds ${MAX_BODY_LENGTH} characters after wrapping.`,
+    );
+  }
+
+  return wrapped;
+}
+
+function wrapBodyLine(line) {
+  if (line.length <= MAX_BODY_LINE_LENGTH || line.length === 0) {
+    return [line];
+  }
+
+  const bullet = /^(?<prefix>[-*] )(?<content>.*)$/.exec(line);
+  const firstPrefix = bullet?.groups.prefix || "";
+  const continuationPrefix = bullet ? "  " : "";
+  const words = (bullet?.groups.content || line).split(/\s+/);
+  const lines = [];
+  let current = firstPrefix;
+
+  for (const word of words) {
+    const prefix = lines.length === 0 ? firstPrefix : continuationPrefix;
+
+    if (word.length + prefix.length > MAX_BODY_LINE_LENGTH) {
+      throw new InvalidModelOutputError(
+        `body contains a word longer than ${MAX_BODY_LINE_LENGTH} characters.`,
+      );
+    }
+
+    if (
+      current.length > prefix.length &&
+      current.length + 1 + word.length > MAX_BODY_LINE_LENGTH
+    ) {
+      lines.push(current);
+      current = `${continuationPrefix}${word}`;
+    } else {
+      current += current.length > prefix.length ? ` ${word}` : word;
+    }
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
 }
 
 function cleanControls(value) {

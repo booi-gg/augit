@@ -1,50 +1,87 @@
 import { emitKeypressEvents } from "node:readline";
 
+const ANSI = Object.freeze({
+  blue: 34,
+  bold: 1,
+  cyan: 36,
+  dim: 2,
+  gray: 90,
+  green: 32,
+  magenta: 35,
+  red: 31,
+  yellow: 33,
+});
+const TYPE_COLORS = Object.freeze({
+  build: ANSI.yellow,
+  chore: ANSI.gray,
+  ci: ANSI.blue,
+  docs: ANSI.blue,
+  feat: ANSI.green,
+  fix: ANSI.red,
+  perf: ANSI.magenta,
+  refactor: ANSI.cyan,
+  revert: ANSI.red,
+  style: ANSI.magenta,
+  test: ANSI.yellow,
+});
 const generatedCommitChoices = [
   {
+    color: ANSI.green,
     label: "Commit",
     value: "commit",
   },
   {
+    color: ANSI.yellow,
     label: "Generate again",
     value: "regenerate",
   },
   {
+    color: ANSI.red,
     label: "Cancel",
     value: "cancel",
   },
 ];
 const noStagedChangesChoices = [
   {
+    color: ANSI.green,
     label: "Stage all changes and continue",
     value: "stage",
   },
   {
+    color: ANSI.red,
     label: "Cancel",
     value: "cancel",
   },
 ];
 
 export async function promptForGeneratedCommit({
+  color,
   input = process.stdin,
   message,
   output = process.stderr,
 } = {}) {
+  const useColor = color ?? supportsColor(output);
+
   return promptForChoice({
     choices: generatedCommitChoices,
     initialSelection: 0,
     input,
     introduction:
-      `Generated commit message:\n\n${message}\n\n` +
+      `${paint("Generated commit message:", [ANSI.bold], useColor)}\n\n` +
+      `${formatCommitMessage(message, { color: useColor })}\n\n` +
       "Use the up and down arrow keys to select, then press Enter.\n",
     output,
+    useColor,
   });
 }
 
 export async function promptForNoStagedChanges({
+  color,
   input = process.stdin,
   output = process.stderr,
 } = {}) {
+  const useColor = color ?? supportsColor(output);
+
   return promptForChoice({
     choices: noStagedChangesChoices,
     initialSelection: noStagedChangesChoices.length - 1,
@@ -53,6 +90,7 @@ export async function promptForNoStagedChanges({
       "No staged changes found.\n" +
       "Use the up and down arrow keys to select, then press Enter.\n",
     output,
+    useColor,
   });
 }
 
@@ -62,6 +100,7 @@ async function promptForChoice({
   input,
   introduction,
   output,
+  useColor,
 }) {
   if (!input?.isTTY || !output?.isTTY) {
     return null;
@@ -74,7 +113,7 @@ async function promptForChoice({
   emitKeypressEvents(input);
 
   output.write(introduction);
-  renderChoices(output, choices, selectedIndex);
+  renderChoices(output, choices, selectedIndex, { useColor });
 
   return new Promise((resolve, reject) => {
     const finish = (value) => {
@@ -106,7 +145,10 @@ async function promptForChoice({
       }
 
       if (selectedIndex !== previousIndex) {
-        renderChoices(output, choices, selectedIndex, { redraw: true });
+        renderChoices(output, choices, selectedIndex, {
+          redraw: true,
+          useColor,
+        });
       }
     };
     const cleanup = () => {
@@ -139,14 +181,65 @@ function renderChoices(
   output,
   choices,
   selectedIndex,
-  { redraw = false } = {},
+  { redraw = false, useColor = false } = {},
 ) {
   if (redraw) {
     output.write(`\u001B[${choices.length}A`);
   }
 
-  choices.forEach(({ label }, index) => {
-    const marker = index === selectedIndex ? "❯" : " ";
-    output.write(`\r\u001B[2K${marker} ${label}\n`);
+  choices.forEach(({ color, label }, index) => {
+    const selected = index === selectedIndex;
+    const marker = selected ? paint("❯", [ANSI.bold, color], useColor) : " ";
+    const styledLabel = selected
+      ? paint(label, [ANSI.bold, color], useColor)
+      : paint(label, [ANSI.dim], useColor);
+
+    output.write(`\r\u001B[2K${marker} ${styledLabel}\n`);
   });
+}
+
+function formatCommitMessage(message, { color }) {
+  const [subject = "", ...bodyLines] = String(message)
+    .replace(/\r\n?/g, "\n")
+    .split("\n");
+  const match =
+    /^(?<type>[a-z]+)(?<scope>\([^)]+\))?(?<breaking>!)?(?<separator>: )(?<description>.+)$/.exec(
+      subject,
+    );
+  let formattedSubject = subject;
+
+  if (match) {
+    const typeColor = TYPE_COLORS[match.groups.type] || ANSI.gray;
+
+    formattedSubject =
+      paint(match.groups.type, [ANSI.bold, typeColor], color) +
+      paint(match.groups.scope || "", [ANSI.cyan], color) +
+      paint(match.groups.breaking || "", [ANSI.bold, ANSI.red], color) +
+      paint(match.groups.separator, [ANSI.dim], color) +
+      paint(match.groups.description, [ANSI.bold], color);
+  }
+
+  if (bodyLines.length === 0) {
+    return formattedSubject;
+  }
+
+  const body = bodyLines.join("\n");
+
+  return `${formattedSubject}\n${paint(body, [ANSI.gray], color)}`;
+}
+
+function paint(value, codes, enabled) {
+  if (!enabled || !value) {
+    return value;
+  }
+
+  return `\u001B[${codes.join(";")}m${value}\u001B[0m`;
+}
+
+function supportsColor(output) {
+  return (
+    Boolean(output?.isTTY) &&
+    process.env.NO_COLOR === undefined &&
+    process.env.TERM !== "dumb"
+  );
 }
