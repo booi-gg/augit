@@ -88,7 +88,7 @@ export async function promptForNoStagedChanges({
     input,
     introduction:
       "No staged changes found.\n" +
-      "Use the UP and DOWN arrow keys to select, then press Enter.\n",
+      "Use the up and down arrow keys to select, then press Enter.\n",
     output,
     useColor,
   });
