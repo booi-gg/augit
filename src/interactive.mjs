@@ -237,17 +237,7 @@ function formatCommitMessage(message, { color }) {
   const [subject = "", ...bodyLines] = String(message)
     .replace(/\r\n?/g, "\n")
     .split("\n");
-  const match =
-    /^(?<type>[a-z]+)(?<scope>\([^)]+\))?(?<breaking>!)?(?<separator>: )(?<description>.+)$/.exec(
-      subject,
-    );
-  let formattedSubject = subject;
-
-  if (match) {
-    const typeColor = TYPE_COLORS[match.groups.type] || ANSI.gray;
-
-    formattedSubject = paint(subject, [ANSI.bold, typeColor], color);
-  }
+  const formattedSubject = paint(subject, [ANSI.bold, ANSI.orange], color);
 
   if (bodyLines.length === 0) {
     return formattedSubject;
@@ -255,7 +245,7 @@ function formatCommitMessage(message, { color }) {
 
   const body = bodyLines.join("\n");
 
-  return `${formattedSubject}\n${paint(body, [ANSI.gray], color)}`;
+  return `${formattedSubject}\n${paint(body, [ANSI.orange], color)}`;
 }
 
 function paint(value, codes, enabled) {

@@ -41,14 +41,14 @@ test("defines the grammar-constrained response shape", () => {
   assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.type, "string");
 });
 
-test("asks for a commit body only when it adds useful context", () => {
+test("asks for the most important change in the subject and the rest in the body", () => {
   const prompt = buildCommitPrompt(context);
 
   assert.match(prompt, /body.*at most 400 characters/i);
-  assert.match(prompt, /default to an empty string/i);
-  assert.match(prompt, /one focused change.*body must be empty/is);
+  assert.match(prompt, /single most important change/i);
+  assert.match(prompt, /put every other\s+change in the body/i);
+  assert.match(prompt, /cover every\s+change present in the diff, including minor ones/i);
   assert.match(prompt, /every body line.*72 characters/i);
-  assert.match(prompt, /changelog lines/i);
   assert.match(prompt, /never truncate a name, flag, or version/i);
   assert.doesNotMatch(prompt, /body.*always an empty string/i);
 });

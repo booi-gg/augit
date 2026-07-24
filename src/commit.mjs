@@ -17,6 +17,51 @@ const noProgress = () => {};
 
 noProgress.end = () => {};
 
+const SPINNER_FRAMES = ["|", "/", "-", "\\"];
+const SPINNER_INTERVAL_MS = 100;
+
+function createStatusSpinner(io) {
+  const isInteractive = Boolean(io.stderr?.isTTY);
+  let timer;
+  let label = "";
+  let frameIndex = 0;
+
+  function render() {
+    io.stderr.write(
+      `\r${SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length]} ${label}`,
+    );
+    frameIndex += 1;
+  }
+
+  function stop() {
+    if (!timer) {
+      return;
+    }
+
+    clearInterval(timer);
+    timer = undefined;
+    io.stderr.write(`\r${" ".repeat(label.length + 2)}\r`);
+  }
+
+  return {
+    start(text) {
+      stop();
+
+      if (!isInteractive) {
+        io.stderr.write(`${text}\n`);
+        return;
+      }
+
+      label = text;
+      frameIndex = 0;
+      render();
+      timer = setInterval(render, SPINNER_INTERVAL_MS);
+      timer.unref?.();
+    },
+    stop,
+  };
+}
+
 export class CommitCommandUsageError extends Error {
   constructor(message) {
     super(message);
@@ -100,6 +145,7 @@ export async function runCommitWorkflow(
   let runtimeForUsage;
   let generatedMessage = false;
   let suppressStatusAnnouncements = false;
+  const spinner = createStatusSpinner(io);
 
   try {
     runtime = await createRuntime();
@@ -126,10 +172,10 @@ export async function runCommitWorkflow(
             );
           }
 
-          io.stderr.write("Loading local model...\n");
+          spinner.start("Loading local model...");
         } else if (phase === "generating") {
           modelProgress.end?.();
-          io.stderr.write("Generating commit message...\n");
+          spinner.start("Generating commit message");
         }
       },
       runtime,
@@ -202,6 +248,7 @@ export async function runCommitWorkflow(
 
     while (true) {
       modelProgress.end?.();
+      spinner.stop();
 
       let action;
 
@@ -230,7 +277,7 @@ export async function runCommitWorkflow(
       if (action === "cancel") {
         io.stderr.write(
           requireCommit
-            ? "\n- ABORT -; nothing was committed.\n"
+            ? "\n- ABORT -: nothing was committed.\n"
             : "\n- ABORT -\n",
         );
         return 0;
@@ -294,6 +341,8 @@ export async function runCommitWorkflow(
       throw new TypeError(`Unsupported generated commit action: ${action}`);
     }
   } finally {
+    spinner.stop();
+
     let usage;
 
     if (generatedMessage) {

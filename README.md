@@ -57,10 +57,10 @@ generated message. Generate again replaces the proposal, and Cancel leaves the
 staged changes untouched.
 
 Subjects use the Conventional Commits structure, target 50 characters, and
-have a hard 72-character ceiling so exact names are never truncated. Bodies
-are empty by default. A body is kept only when it adds concrete motivation,
-compatibility impact, migration guidance, or a short multi-item changelog that
-the subject cannot capture. Body lines are wrapped at 72 characters.
+have a hard 72-character ceiling so exact names are never truncated. The
+subject names the single most important staged change; every other change,
+however small, is listed as a "- " line in the body. Body lines are wrapped
+at 72 characters.
 
 Running `gitkum` with no arguments (or `-h`/`--help`) only prints usage; it
 never reads the working tree or loads the model. Use `gitkum commit` to draft
