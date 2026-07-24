@@ -2,7 +2,7 @@
 
 ## Qwen2.5-Coder-1.5B-Instruct GGUF
 
-`gikum` downloads
+`gitkum` downloads
 [Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF)
 from Qwen at runtime. The weights are not included in this package.
 

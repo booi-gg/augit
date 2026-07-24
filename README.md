@@ -1,9 +1,9 @@
-# gikum
+# gitkum
 
 Generate one concise Conventional Commit message from staged changes with a
 small local language model.
 
-`gikum` sends no source code to a hosted inference service. It collects the
+`gitkum` sends no source code to a hosted inference service. It collects the
 staged Git diff, removes common credential patterns, bounds the prompt, runs a
 curated GGUF model locally, and prints the validated message to standard
 output.
@@ -50,7 +50,7 @@ misinterpret an unusual or very large change.
 ## CLI
 
 ```text
-gikum [options]
+gitkum [options]
 
       --download-model  Download and verify the model for offline use
   -h, --help            Show help
