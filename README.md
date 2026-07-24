@@ -52,6 +52,7 @@ misinterpret an unusual or very large change.
 ```text
 gikum [options]
 
+      --clear-model     Delete the downloaded model from the cache
       --download-model  Download and verify the model for offline use
   -h, --help            Show help
   -v, --version         Show version
@@ -66,6 +67,14 @@ To prepare before going offline:
 ```sh
 node bin/cli.mjs --download-model
 ```
+
+To reclaim the space used by the downloaded model:
+
+```sh
+node bin/cli.mjs --clear-model
+```
+
+The next generation downloads and verifies the model again.
 
 If no changes are staged, the command exits without downloading or loading the
 model.

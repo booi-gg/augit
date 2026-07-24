@@ -47,7 +47,8 @@ Weights are downloaded to a platform cache and verified while streaming.
 Concurrent processes coordinate through an atomic directory lock whose mtime
 is refreshed during long downloads. Verification metadata records the pinned
 digest and a filesystem fingerprint. A fingerprint change forces a complete
-rehash before reuse.
+rehash before reuse. Cache clearing uses the same lock and removes only the
+built-in model and its verification or partial-download sidecars.
 
 The runtime loads the model lazily after staged changes have been found. A
 created runtime is disposed by the orchestrator; an injected runtime remains
