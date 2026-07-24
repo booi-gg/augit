@@ -1,8 +1,11 @@
 import { readFile } from "node:fs/promises";
 
 import { generateCommitMessage } from "./generate.mjs";
-import { stageAllChanges } from "./git.mjs";
-import { promptForNoStagedChanges } from "./interactive.mjs";
+import { commitStagedChanges, stageAllChanges } from "./git.mjs";
+import {
+  promptForGeneratedCommit,
+  promptForNoStagedChanges,
+} from "./interactive.mjs";
 import {
   BUILT_IN_MODEL,
   clearBuiltInModel,
@@ -10,6 +13,7 @@ import {
   getBuiltInModelInfo,
   getBuiltInModelPath,
 } from "./model.mjs";
+import { createNodeLlamaRuntime } from "./runtime.mjs";
 
 const help = `gitkum
 
@@ -25,8 +29,10 @@ Options:
   -h, --help            Show help
   -v, --version         Show version
 
-Run without options to generate a message from staged changes.
+Run without options to generate and review a message from staged changes.
+In an interactive terminal, choose whether to commit, generate again, or cancel.
 If none are staged in an interactive terminal, gitkum can stage all changes.
+In non-interactive use, the generated message is printed without committing.
 The built-in model is selected automatically; model selection is not exposed.
 `;
 
@@ -43,6 +49,7 @@ export {
   NoStagedChangesError,
   NotGitRepositoryError,
   collectStagedChanges,
+  commitStagedChanges,
   stageAllChanges,
 } from "./git.mjs";
 export { generateCommit, generateCommitMessage } from "./generate.mjs";
@@ -55,10 +62,13 @@ export async function run(
   io = process,
   {
     clearModel = clearBuiltInModel,
+    commitChanges = commitStagedChanges,
+    createRuntime = createNodeLlamaRuntime,
     cwd = process.cwd(),
     ensureModel = ensureBuiltInModel,
     generate = generateCommitMessage,
     getModelInfo = getBuiltInModelInfo,
+    promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
     stageChanges = stageAllChanges,
   } = {},
@@ -133,58 +143,112 @@ export async function run(
   const modelProgress = createProgressWriter(io);
 
   try {
-    const generationOptions = {
-      cwd,
-      onModelProgress: modelProgress,
-      onStatus({ phase }) {
-        if (phase === lastPhase) {
-          return;
-        }
-
-        lastPhase = phase;
-
-        if (phase === "collecting") {
-          io.stderr.write("Collecting staged changes...\n");
-        } else if (phase === "loading-model") {
-          io.stderr.write("Loading local model...\n");
-        } else if (phase === "generating") {
-          modelProgress.end();
-          io.stderr.write("Generating commit message...\n");
-        }
-      },
-    };
-    let message;
-
+    let runtime;
     try {
-      message = await generate(generationOptions);
-    } catch (error) {
-      if (error?.code !== "NO_STAGED_CHANGES") {
-        throw error;
+      runtime = await createRuntime();
+      const generationOptions = {
+        cwd,
+        onModelProgress: modelProgress,
+        onStatus({ phase }) {
+          if (phase === lastPhase) {
+            return;
+          }
+
+          lastPhase = phase;
+
+          if (phase === "collecting") {
+            io.stderr.write("Collecting staged changes...\n");
+          } else if (phase === "loading-model") {
+            io.stderr.write("Loading local model...\n");
+          } else if (phase === "generating") {
+            modelProgress.end();
+            io.stderr.write("Generating commit message...\n");
+          }
+        },
+        runtime,
+      };
+      let message;
+      let previousMessages = [];
+
+      try {
+        message = await generate(generationOptions);
+      } catch (error) {
+        if (error?.code !== "NO_STAGED_CHANGES") {
+          throw error;
+        }
+
+        const action = await promptNoStagedChanges({
+          input: io.stdin,
+          output: io.stderr,
+        });
+
+        if (action === null) {
+          throw error;
+        }
+
+        if (action !== "stage") {
+          io.stderr.write("Cancelled.\n");
+          return 0;
+        }
+
+        io.stderr.write("Staging all changes...\n");
+        await stageChanges({ cwd });
+        lastPhase = undefined;
+        message = await generate(generationOptions);
       }
 
-      const action = await promptNoStagedChanges({
-        input: io.stdin,
-        output: io.stderr,
-      });
+      while (true) {
+        modelProgress.end();
 
-      if (action === null) {
-        throw error;
+        const action = await promptGeneratedCommit({
+          input: io.stdin,
+          message,
+          output: io.stdout,
+        });
+
+        if (action === null) {
+          io.stdout.write(`${message}\n`);
+          return 0;
+        }
+
+        if (action === "cancel") {
+          io.stderr.write("Cancelled.\n");
+          return 0;
+        }
+
+        if (action === "regenerate") {
+          previousMessages = [...previousMessages, message].slice(-3);
+          message = await generate({
+            ...generationOptions,
+            previousMessages,
+          });
+          continue;
+        }
+
+        if (action === "commit") {
+          const runtimeToDispose = runtime;
+
+          runtime = undefined;
+          await runtimeToDispose?.dispose?.();
+
+          const result = await commitChanges({ cwd, message });
+
+          if (result?.stderr) {
+            io.stderr.write(result.stderr);
+          }
+
+          if (result?.stdout) {
+            io.stdout.write(result.stdout);
+          }
+
+          return 0;
+        }
+
+        throw new TypeError(`Unsupported generated commit action: ${action}`);
       }
-
-      if (action !== "stage") {
-        io.stderr.write("Cancelled.\n");
-        return 0;
-      }
-
-      io.stderr.write("Staging all changes...\n");
-      await stageChanges({ cwd });
-      lastPhase = undefined;
-      message = await generate(generationOptions);
+    } finally {
+      await runtime?.dispose?.();
     }
-
-    modelProgress.end();
-    io.stdout.write(`${message}\n`);
-    return 0;
   } catch (error) {
     modelProgress.end();
     io.stderr.write(`${error?.message || String(error)}\n`);

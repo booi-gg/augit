@@ -14,6 +14,7 @@ export async function generateCommit({
   maxDiffBytes,
   onModelProgress = () => {},
   onStatus = () => {},
+  previousMessages = [],
   runtime,
   sanitizeOptions = {},
   signal,
@@ -26,12 +27,18 @@ export async function generateCommit({
   });
   const requiredType = inferRequiredType(safeContext);
   const keyConcepts = extractKeyConcepts(safeContext);
+  const previousMessageSet = new Set(
+    previousMessages.map((message) =>
+      String(message).replace(/\r\n?/g, "\n").trim(),
+    ),
+  );
   const {
     prompt: basePrompt,
     diffTruncated: promptDiffTruncated,
     filesTruncated: promptFilesTruncated,
   } = buildCommitPromptDetails(safeContext, {
     keyConcepts,
+    previousMessages,
     requiredType,
   });
 
@@ -53,6 +60,12 @@ export async function generateCommit({
 
       try {
         const normalized = normalizeCommitMessage(output, { requiredType });
+
+        if (previousMessageSet.has(normalized.message)) {
+          throw new InvalidModelOutputError(
+            "message repeats a previous proposal.",
+          );
+        }
 
         return {
           ...normalized,

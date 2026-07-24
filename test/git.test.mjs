@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
   NoStagedChangesError,
   collectStagedChanges,
+  commitStagedChanges,
   stageAllChanges,
 } from "../src/git.mjs";
 import { createRepository, git } from "../support/git-fixture.mjs";
@@ -72,6 +73,24 @@ test("stages all tracked and untracked changes", async (t) => {
     { status: "M", path: "README.md" },
     { status: "A", path: "untracked.txt" },
   ]);
+});
+
+test("commits staged changes with the generated subject and body", async (t) => {
+  const directory = await createRepository(t);
+  const message =
+    "feat(cli): review generated commits\n\n" +
+    "Let developers regenerate or cancel before writing the commit.";
+
+  await writeFile(join(directory, "review.txt"), "review\n");
+  await git(directory, "add", "review.txt");
+
+  const result = await commitStagedChanges({ cwd: directory, message });
+  const log = await git(directory, "log", "-1", "--format=%B");
+  const status = await git(directory, "status", "--short");
+
+  assert.match(result.stdout, /feat\(cli\): review generated commits/);
+  assert.equal(log.stdout.trimEnd(), message);
+  assert.equal(status.stdout, "");
 });
 
 test("bounds oversized diffs without dropping file status", async (t) => {
