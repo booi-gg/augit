@@ -36,7 +36,7 @@ export async function promptForGeneratedCommit({
     input,
     introduction:
       `Generated commit message:\n\n${message}\n\n` +
-      "Use the up and down arrow keys to select, then press Enter.\n",
+      "Use the UP and DOWN arrow keys to select, then press Enter.\n",
     output,
   });
 }
@@ -51,7 +51,7 @@ export async function promptForNoStagedChanges({
     input,
     introduction:
       "No staged changes found.\n" +
-      "Use the up and down arrow keys to select, then press Enter.\n",
+      "Use the UP and DOWN arrow keys to select, then press Enter.\n",
     output,
   });
 }
