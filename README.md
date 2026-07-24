@@ -48,24 +48,6 @@ feat(cli): generate messages from staged changes
   Cancel
 ```
 
-Enable `showUsageSummary` (see [Configuration](#configuration); off by
-default) to have GitKum report the cumulative local-inference usage for every
-proposal and validation retry before exit:
-
-```text
-Generation usage
-  Tokens: 1,248 total (1,216 input, 32 output)
-  Wall time: 2.41 s
-  CPU: Apple M4 Pro, 1.08 s time, 86.4 MB allocated
-  GPU: Metal, Apple M4 Pro, 1.17 GB allocated
-```
-
-The summary is written to standard error, keeping standard output free for
-the commit message and menu. CPU is reported as process CPU time, while
-CPU/GPU memory is the peak native allocation observed across generation
-attempts. The GPU line names the backend and device actually selected by
-`node-llama-cpp`; CPU-only runs say that the GPU was not used.
-
 Interactive terminals color the Conventional Commit type and scope, highlight
 the selected `❯` action, and keep unselected actions subdued. Set `NO_COLOR`
 to disable styling. Use the up and down arrow keys (or `j`/`k`) to choose an
