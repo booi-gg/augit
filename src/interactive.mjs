@@ -44,7 +44,7 @@ const generatedCommitChoices = [
 const noStagedChangesChoices = [
   {
     color: ANSI.green,
-    label: "Stage all changes and continue",
+    label: "Stage changes and continue",
     value: "stage",
   },
   {
