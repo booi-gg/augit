@@ -12,6 +12,7 @@ const ANSI = Object.freeze({
   magenta: 35,
   orange: "38;5;208",
   red: 31,
+  vividBlue: "38;5;27",
   yellow: 33,
 });
 const TYPE_COLORS = Object.freeze({
@@ -87,9 +88,19 @@ export function formatChangesStatus(
   { color, output = process.stderr } = {},
 ) {
   const message = found ? "Found!" : "Not found!";
-  const statusColor = found ? ANSI.lightBlue : ANSI.orange;
+  const codes = found ? [ANSI.bold, ANSI.vividBlue] : [ANSI.orange];
 
-  return paint(message, [statusColor], color ?? supportsColor(output));
+  return paint(message, codes, color ?? supportsColor(output));
+}
+
+export function formatUnstagedNotice({
+  color,
+  output = process.stderr,
+} = {}) {
+  const message =
+    "You still have unstaged changes. Run again to commit those as well.";
+
+  return paint(message, [ANSI.lightBlue], color ?? supportsColor(output));
 }
 
 export async function promptForNoStagedChanges({

@@ -145,7 +145,7 @@ test("can render the review without ANSI color", async () => {
 test("formats staged-change statuses with terminal colors", () => {
   assert.equal(
     formatChangesStatus(true, { color: true }),
-    "\u001B[94mFound!\u001B[0m",
+    "\u001B[1;38;5;27mFound!\u001B[0m",
   );
   assert.equal(
     formatChangesStatus(false, { color: true }),

@@ -7,6 +7,7 @@ import {
 } from "./git.mjs";
 import {
   formatChangesStatus,
+  formatUnstagedNotice,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "./interactive.mjs";
@@ -285,8 +286,8 @@ export async function runCommitWorkflow(
       if (action === "cancel") {
         io.stderr.write(
           requireCommit
-            ? "\n- ABORT -: nothing was committed.\n"
-            : "\n- ABORT -\n",
+            ? "\n// ABORT //: nothing was committed.\n"
+            : "\n// ABORT //\n",
         );
         return 0;
       }
@@ -346,7 +347,7 @@ export async function runCommitWorkflow(
         try {
           if (await hasChanges({ cwd })) {
             io.stderr.write(
-              "\nYou still have unstaged changes. Run again to commit those as well.\n",
+              `\n${formatUnstagedNotice({ output: io.stderr })}\n`,
             );
           }
         } catch {
