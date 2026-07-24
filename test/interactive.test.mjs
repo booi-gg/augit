@@ -38,7 +38,7 @@ test("shows the generated message and defaults to committing", async () => {
   assert.match(plainDisplay, /Cancel/);
   assert.match(
     displayed,
-    /\u001B\[1;32mfeat\(cli\): review generated commits\u001B\[0m/,
+    /\u001B\[1;38;5;208mfeat\(cli\): review generated commits\u001B\[0m/,
   );
   assert.match(displayed, /\u001B\[1;32m❯\u001B\[0m/);
   assert.deepEqual(input.rawModeChanges, [true, false]);

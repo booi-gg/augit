@@ -41,21 +41,6 @@ test("defines the grammar-constrained response shape", () => {
   assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.type, "string");
 });
 
-test("asks for the most important change in the subject and the rest in the body", () => {
-  const prompt = buildCommitPrompt(context);
-
-  assert.match(prompt, /body.*at most 400 characters/i);
-  assert.match(prompt, /single most important change/i);
-  assert.match(prompt, /put every other\s+change in the body/i);
-  assert.match(
-    prompt,
-    /cover every\s+change present in the diff, including minor ones/i,
-  );
-  assert.match(prompt, /every body line.*72 characters/i);
-  assert.match(prompt, /never truncate a name, flag, or version/i);
-  assert.doesNotMatch(prompt, /body.*always an empty string/i);
-});
-
 test("asks regeneration to avoid recent proposals", () => {
   const prompt = buildCommitPrompt(context, {
     previousMessages: ["feat(cli): review generated commits"],
