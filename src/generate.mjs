@@ -67,6 +67,8 @@ export async function generateCommit({
           );
         }
 
+        const usage = activeRuntime.getUsage?.();
+
         return {
           ...normalized,
           input: {
@@ -77,6 +79,7 @@ export async function generateCommit({
             keyConcepts,
           },
           model: model.model,
+          ...(usage ? { usage } : {}),
         };
       } catch (error) {
         if (!(error instanceof InvalidModelOutputError) || attempt === 2) {

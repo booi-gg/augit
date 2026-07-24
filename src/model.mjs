@@ -29,6 +29,10 @@ export const BUILT_IN_MODEL = Object.freeze({
   name: "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
   filename: MODEL_FILENAME,
   byteLength: 1_117_320_768,
+  parameterCount: 1_777_088_000,
+  quantization: "Q4_K_M",
+  contextSize: 32_768,
+  vocabularySize: 151_936,
   sha256: "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046",
   url:
     "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF" +

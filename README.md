@@ -48,6 +48,24 @@ feat(cli): generate messages from staged changes
   Cancel
 ```
 
+Before exit, GitKum reports the cumulative local-inference usage for every
+proposal and validation retry:
+
+```text
+Generation usage
+  Tokens: 1,248 total (1,216 input, 32 output)
+  Wall time: 2.41 s
+  CPU: Apple M4 Pro, 1.08 s time, 86.4 MB allocated
+  GPU: Metal, Apple M4 Pro, 1.17 GB allocated
+```
+
+The summary is written to standard error, so redirected standard output and
+command substitution continue to contain only the commit message. CPU is
+reported as process CPU time, while CPU/GPU memory is the peak native
+allocation observed across generation attempts. The GPU line names the backend
+and device actually selected by `node-llama-cpp`; CPU-only runs say that the GPU
+was not used.
+
 Interactive terminals color the Conventional Commit type and scope, highlight
 the selected `❯` action, and keep unselected actions subdued. Set `NO_COLOR`
 to disable styling. Use the up and down arrow keys (or `j`/`k`) to choose an
@@ -123,14 +141,17 @@ To prepare before going offline:
 node bin/cli.mjs --download-model
 ```
 
-To see the built-in model identity, verification status, cache path, size,
-SHA-256 digest, and pinned download source:
+To see the built-in model identity, parameter count, quantization, token limits,
+verification status, cache details, and the CPU/GPU runtime selected on this
+machine:
 
 ```sh
 node bin/cli.mjs --model-info
 ```
 
-This inspects the cache without downloading the model.
+This inspects the cache without downloading the model. It initializes the
+native runtime to identify its acceleration backend, but does not load the
+model weights.
 
 To reclaim the space used by the downloaded model:
 
@@ -173,7 +194,7 @@ import { generateCommit, generateCommitMessage } from "gikum";
 const message = await generateCommitMessage({ cwd: "/path/to/repository" });
 
 const result = await generateCommit({ cwd: "/path/to/repository" });
-console.log(result.subject, result.body, result.input);
+console.log(result.subject, result.body, result.input, result.usage);
 ```
 
 The lower-level Git collector, sanitizer, output normalizer, model cache, and
@@ -239,7 +260,9 @@ See [the architecture](docs/ARCHITECTURE.md),
 
 ## Model
 
-The built-in baseline is
-Qwen2.5-Coder-1.5B-Instruct GGUF Q4_K_M, loaded through `node-llama-cpp`.
-Weights are pinned to an immutable upstream revision and are not included in
-the npm package. See [third-party notices](THIRD_PARTY_NOTICES.md).
+The built-in baseline is Qwen2.5-Coder-1.5B-Instruct GGUF Q4_K_M: 1,777,088,000
+parameters with a 32,768-token model context. GitKum uses a bounded
+16,384-token runtime context and generates at most 256 output tokens per
+attempt. The model is loaded through `node-llama-cpp`. Weights are pinned to an
+immutable upstream revision and are not included in the npm package. See
+[third-party notices](THIRD_PARTY_NOTICES.md).
