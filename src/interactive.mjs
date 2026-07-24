@@ -7,7 +7,9 @@ const ANSI = Object.freeze({
   dim: 2,
   gray: 90,
   green: 32,
+  lightBlue: 94,
   magenta: 35,
+  orange: "38;5;208",
   red: 31,
   yellow: 33,
 });
@@ -80,6 +82,16 @@ export async function promptForGeneratedCommit({
   });
 }
 
+export function formatChangesStatus(
+  found,
+  { color, output = process.stderr } = {},
+) {
+  const message = found ? "Changes found." : "No staged changes found.";
+  const statusColor = found ? ANSI.lightBlue : ANSI.orange;
+
+  return paint(message, [statusColor], color ?? supportsColor(output));
+}
+
 export async function promptForNoStagedChanges({
   color,
   input = process.stdin,
@@ -93,7 +105,6 @@ export async function promptForNoStagedChanges({
     initialSelection: 0,
     input,
     introduction:
-      "No staged changes found.\n" +
       "Use the up and down arrow keys to select, then press Enter.\n",
     output,
     useColor,

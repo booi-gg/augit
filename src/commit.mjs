@@ -1,6 +1,11 @@
 import { generateCommitMessage } from "./generate.mjs";
-import { commitStagedChanges, stageAllChanges } from "./git.mjs";
 import {
+  commitStagedChanges,
+  hasWorkingTreeChanges,
+  stageAllChanges,
+} from "./git.mjs";
+import {
+  formatChangesStatus,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "./interactive.mjs";
@@ -65,6 +70,7 @@ export async function runCommitWorkflow(
     createRuntime = createNodeLlamaRuntime,
     cwd = process.cwd(),
     generate = generateCommitMessage,
+    hasChanges = hasWorkingTreeChanges,
     modelProgress = noProgress,
     promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
@@ -88,9 +94,12 @@ export async function runCommitWorkflow(
 
   let lastPhase;
   let runtime;
+  let runtimeForUsage;
+  let generatedMessage = false;
 
   try {
     runtime = await createRuntime();
+    runtimeForUsage = runtime;
 
     const generationOptions = {
       cwd,
@@ -105,6 +114,9 @@ export async function runCommitWorkflow(
         if (phase === "collecting") {
           io.stderr.write("Collecting staged changes...\n");
         } else if (phase === "loading-model") {
+          io.stderr.write(
+            `${formatChangesStatus(true, { output: io.stderr })}\n`,
+          );
           io.stderr.write("Loading local model...\n");
         } else if (phase === "generating") {
           modelProgress.end?.();
@@ -118,13 +130,18 @@ export async function runCommitWorkflow(
 
     try {
       message = await generate(generationOptions);
+      generatedMessage = true;
     } catch (error) {
       if (error?.code !== "NO_STAGED_CHANGES") {
         throw error;
       }
 
-      if (stageEverything) {
-        throw nothingToCommitError();
+      const found = stageEverything ? false : await hasChanges({ cwd });
+
+      io.stderr.write(`${formatChangesStatus(found, { output: io.stderr })}\n`);
+
+      if (!found) {
+        return 1;
       }
 
       const action = await promptNoStagedChanges({
@@ -133,13 +150,8 @@ export async function runCommitWorkflow(
       });
 
       if (action === null) {
-        if (requireCommit) {
-          throw new Error(
-            "Nothing staged to commit. Stage changes with git add, or pass --all.",
-          );
-        }
-
-        throw error;
+        io.stderr.write("Stage changes with git add, or pass --all.\n");
+        return 1;
       }
 
       if (action !== "stage") {
@@ -161,12 +173,16 @@ export async function runCommitWorkflow(
 
       try {
         message = await generate(generationOptions);
+        generatedMessage = true;
       } catch (retryError) {
-        if (retryError?.code === "NO_STAGED_CHANGES") {
-          throw nothingToCommitError();
+        if (retryError?.code !== "NO_STAGED_CHANGES") {
+          throw retryError;
         }
 
-        throw retryError;
+        io.stderr.write(
+          `${formatChangesStatus(false, { output: io.stderr })}\n`,
+        );
+        return 1;
       }
     }
 
@@ -212,6 +228,7 @@ export async function runCommitWorkflow(
           ...generationOptions,
           previousMessages,
         });
+        generatedMessage = true;
         continue;
       }
 
@@ -253,7 +270,25 @@ export async function runCommitWorkflow(
       throw new TypeError(`Unsupported generated commit action: ${action}`);
     }
   } finally {
-    await runtime?.dispose?.();
+    let usage;
+
+    if (generatedMessage) {
+      try {
+        usage = runtimeForUsage?.getUsage?.();
+      } catch {
+        // Diagnostics must never turn a successful generation into a failure.
+      }
+    }
+
+    try {
+      await runtime?.dispose?.();
+    } finally {
+      const summary = formatGenerationUsage(usage);
+
+      if (summary) {
+        io.stderr.write(summary);
+      }
+    }
   }
 }
 
@@ -261,8 +296,56 @@ export function formatGitCommand(args) {
   return `$ ${["git", ...args].map(shellQuoteArg).join(" ")}`;
 }
 
-function nothingToCommitError() {
-  return new Error("Nothing to commit; the working tree is clean.");
+export function formatGenerationUsage(usage) {
+  if (!Number.isFinite(usage?.tokens?.total)) {
+    return "";
+  }
+
+  const lines = [
+    "Generation usage",
+    `  Tokens: ${formatInteger(usage.tokens.total)} total (${formatInteger(usage.tokens.input)} input, ${formatInteger(usage.tokens.output)} output)`,
+  ];
+
+  if (Number.isFinite(usage.wallTimeMs)) {
+    lines.push(`  Wall time: ${formatDuration(usage.wallTimeMs)}`);
+  }
+
+  const cpuDetails = [];
+
+  if (usage.cpu?.model) {
+    cpuDetails.push(usage.cpu.model);
+  }
+
+  if (Number.isFinite(usage.cpu?.timeMs)) {
+    cpuDetails.push(`${formatDuration(usage.cpu.timeMs)} time`);
+  }
+
+  if (Number.isFinite(usage.cpu?.memoryBytes)) {
+    cpuDetails.push(`${formatBytes(usage.cpu.memoryBytes)} allocated`);
+  }
+
+  if (cpuDetails.length > 0) {
+    lines.push(`  CPU: ${cpuDetails.join(", ")}`);
+  }
+
+  const backend = usage.gpu?.backend;
+
+  if (backend === "cpu") {
+    lines.push("  GPU: not used (CPU backend)");
+  } else if (backend && backend !== "unknown") {
+    const gpuDetails = [
+      formatGpuBackend(backend),
+      ...(usage.gpu.devices || []),
+    ];
+
+    if (Number.isFinite(usage.gpu.memoryBytes)) {
+      gpuDetails.push(`${formatBytes(usage.gpu.memoryBytes)} allocated`);
+    }
+
+    lines.push(`  GPU: ${gpuDetails.join(", ")}`);
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 function shellQuoteArg(value) {
@@ -279,4 +362,44 @@ function validateGitArgs(args) {
   if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
     throw new TypeError("Forwarded Git arguments must be an array of strings.");
   }
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1_000) {
+    return `${Math.floor(bytes)} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1_000)) - 1,
+    units.length - 1,
+  );
+  const value = bytes / 1_000 ** (unitIndex + 1);
+  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+
+  return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
+}
+
+function formatDuration(milliseconds) {
+  if (milliseconds < 1_000) {
+    return `${Math.round(milliseconds)} ms`;
+  }
+
+  return `${(milliseconds / 1_000).toFixed(2)} s`;
+}
+
+function formatGpuBackend(backend) {
+  return (
+    {
+      cuda: "CUDA",
+      metal: "Metal",
+      vulkan: "Vulkan",
+    }[backend] || backend
+  );
+}
+
+function formatInteger(value) {
+  return Number.isFinite(value)
+    ? Math.round(value).toLocaleString("en-US")
+    : "0";
 }

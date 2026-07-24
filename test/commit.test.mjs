@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   CommitCommandUsageError,
+  formatGenerationUsage,
   formatGitCommand,
   parseCommitCommandArgs,
 } from "../src/commit.mjs";
@@ -47,5 +48,35 @@ test("formats copy-pasteable Git commands", () => {
       "--",
     ]),
     `$ git commit --message 'fix(cli): don'"'"'t hide failures' --no-verify --`,
+  );
+});
+
+test("formats CPU-only generation usage", () => {
+  assert.equal(
+    formatGenerationUsage({
+      tokens: {
+        input: 800,
+        output: 24,
+        total: 824,
+      },
+      wallTimeMs: 900,
+      cpu: {
+        model: "Fixture CPU",
+        timeMs: 1_250,
+        memoryBytes: 600_000_000,
+      },
+      gpu: {
+        backend: "cpu",
+        devices: [],
+      },
+    }),
+    [
+      "Generation usage",
+      "  Tokens: 824 total (800 input, 24 output)",
+      "  Wall time: 900 ms",
+      "  CPU: Fixture CPU, 1.25 s time, 600 MB allocated",
+      "  GPU: not used (CPU backend)",
+      "",
+    ].join("\n"),
   );
 });

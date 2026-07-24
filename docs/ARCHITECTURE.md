@@ -15,17 +15,19 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
 ## Components
 
 - `src/git.mjs` runs Git directly with `spawn`, collects only the index, caps
-  buffered output, and stages or commits only after an explicit CLI choice.
-- `src/interactive.mjs` owns the terminal-only prompts for an empty index and
-  generated-message review. It applies type, scope, and selection colors only
-  while writing to a color-capable TTY.
+  buffered output, and stages or commits only after an explicit CLI option or
+  review choice.
+- `src/interactive.mjs` owns terminal status styling, the unstaged-change
+  choice, and generated-message review. It applies status, type, scope, and
+  selection colors only while writing to a color-capable TTY.
 - `src/sanitize.mjs` normalizes control characters, bounds every input class,
   and redacts common credential formats.
 - `src/prompt.mjs` serializes evidence as JSON and defines the grammar schema.
 - `src/model.mjs` owns the single built-in model, cache paths, atomic locking,
   streaming verification, and cache fingerprints.
 - `src/runtime.mjs` lazily loads `node-llama-cpp`, creates a bounded context,
-  enforces JSON grammar, and disposes native resources.
+  enforces JSON grammar, records token and local compute usage, probes the
+  selected CPU/GPU backend, and disposes native resources.
 - `src/output.mjs` accepts structured or textual adapter results and enforces
   the Conventional Commit contract.
 - `src/generate.mjs` orchestrates the pipeline and retries one invalid model
@@ -61,4 +63,8 @@ built-in model and its verification or partial-download sidecars.
 
 The runtime loads the model lazily after staged changes have been found. A
 created runtime is disposed by the orchestrator; an injected runtime remains
-owned by its caller.
+owned by its caller. Its usage meter accumulates exact input/output token
+counts across validation retries and regenerated proposals, process CPU time,
+wall time, and peak native CPU/GPU allocation. The CLI writes this diagnostic
+summary to standard error so standard output remains suitable for command
+substitution.

@@ -23,6 +23,16 @@ test("runs collection, model preparation, inference, and normalization", async (
         body: "",
       };
     },
+    getUsage() {
+      return {
+        generations: 1,
+        tokens: {
+          input: 900,
+          output: 20,
+          total: 920,
+        },
+      };
+    },
   };
 
   const result = await generateCommit({
@@ -45,6 +55,14 @@ test("runs collection, model preparation, inference, and normalization", async (
   );
   assert.equal(calls[0][1], "/repo");
   assert.match(calls[2][2], /stagedFiles/);
+  assert.deepEqual(result.usage, {
+    generations: 1,
+    tokens: {
+      input: 900,
+      output: 20,
+      total: 920,
+    },
+  });
 });
 
 test("retries one invalid model response with validation feedback", async () => {
