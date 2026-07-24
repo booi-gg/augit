@@ -15,6 +15,7 @@ import { test } from "node:test";
 import {
   ModelDownloadError,
   ModelUnavailableOfflineError,
+  clearBuiltInModel,
   ensureModel,
   getCacheDirectory,
 } from "../src/model.mjs";
@@ -81,6 +82,23 @@ test("downloads, verifies, and reuses a cached model", async () => {
     downloaded: contents.length,
     total: contents.length,
   });
+});
+
+test("clears the cached model and its download artifacts", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const path = join(directory, "models", "fixture.gguf");
+
+  await mkdir(join(directory, "models"), { recursive: true });
+  await writeFile(path, "model");
+  await writeFile(`${path}.json`, "metadata");
+  await writeFile(`${path}.part`, "partial");
+
+  const cleared = await clearBuiltInModel({ path });
+  const alreadyClear = await clearBuiltInModel({ path });
+
+  assert.deepEqual(cleared, { path, cleared: true });
+  assert.deepEqual(alreadyClear, { path, cleared: false });
+  assert.deepEqual(await readdir(join(directory, "models")), []);
 });
 
 test("rejects a model that fails its integrity check", async () => {
@@ -173,4 +191,42 @@ test("coordinates concurrent downloads of the same model", async () => {
 
   assert.equal(requests, 1);
   assert.equal(results.filter((result) => result.downloaded).length, 1);
+});
+
+test("waits for an active download before clearing its model", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const path = join(directory, "models", "fixture.gguf");
+  const contents = Buffer.from("fixture");
+  const model = fixtureModel(contents);
+  let releaseFetch;
+  let signalFetchStarted;
+  const fetchStarted = new Promise((resolve) => {
+    signalFetchStarted = resolve;
+  });
+  const fetchReleased = new Promise((resolve) => {
+    releaseFetch = resolve;
+  });
+  const download = ensureModel(model, {
+    path,
+    async fetch() {
+      signalFetchStarted();
+      await fetchReleased;
+      return new Response(contents);
+    },
+  });
+
+  await fetchStarted;
+
+  const clearing = clearBuiltInModel({
+    path,
+    lockOptions: { retryMs: 5, waitMs: 1_000 },
+  });
+
+  releaseFetch();
+
+  const [downloaded, cleared] = await Promise.all([download, clearing]);
+
+  assert.equal(downloaded.downloaded, true);
+  assert.deepEqual(cleared, { path, cleared: true });
+  assert.deepEqual(await readdir(join(directory, "models")), []);
 });

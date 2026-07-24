@@ -16,6 +16,7 @@ test("prints help when requested", () => {
   assert.match(result.stdout, /^gitkum\n/);
   assert.match(result.stdout, /gitkum \[options\]/);
   assert.match(result.stdout, /Generate concise Git commit messages/);
+  assert.match(result.stdout, /--clear-model/);
 });
 
 test("prints the package version", () => {
@@ -49,6 +50,45 @@ test("downloads the single built-in model without asking for a choice", async ()
   assert.match(stderr, /Preparing Qwen2\.5-Coder/);
   assert.match(stderr, /50%/);
   assert.match(stdout, /ready \(downloaded\): \/cache\/built-in\.gguf/);
+});
+
+test("clears the downloaded built-in model", async () => {
+  let calls = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["--clear-model"], io, {
+    async clearModel() {
+      calls += 1;
+      return { cleared: true, path: "/cache/built-in.gguf" };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(calls, 1);
+  assert.equal(stderr, "");
+  assert.equal(stdout, "Built-in model cleared: /cache/built-in.gguf\n");
+});
+
+test("reports when the built-in model cache is already clear", async () => {
+  let stdout = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write() {} },
+  };
+
+  const status = await run(["--clear-model"], io, {
+    async clearModel() {
+      return { cleared: false, path: "/cache/built-in.gguf" };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(stdout, "Built-in model is not cached: /cache/built-in.gguf\n");
 });
 
 test("generates a commit message with no arguments", async () => {

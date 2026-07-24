@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { generateCommitMessage } from "./generate.mjs";
 import {
   BUILT_IN_MODEL,
+  clearBuiltInModel,
   ensureBuiltInModel,
   getBuiltInModelPath,
 } from "./model.mjs";
@@ -15,6 +16,7 @@ Usage:
   gitkum [options]
 
 Options:
+      --clear-model     Delete the downloaded model from the cache
       --download-model  Download and verify the model for offline use
   -h, --help            Show help
   -v, --version         Show version
@@ -23,7 +25,12 @@ Run without options to generate a message from staged changes.
 The built-in model is selected automatically; model selection is not exposed.
 `;
 
-export { BUILT_IN_MODEL, ensureBuiltInModel, getBuiltInModelPath };
+export {
+  BUILT_IN_MODEL,
+  clearBuiltInModel,
+  ensureBuiltInModel,
+  getBuiltInModelPath,
+};
 export { extractKeyConcepts, inferRequiredType } from "./classify.mjs";
 export {
   GitContextError,
@@ -40,6 +47,7 @@ export async function run(
   args,
   io = process,
   {
+    clearModel = clearBuiltInModel,
     cwd = process.cwd(),
     ensureModel = ensureBuiltInModel,
     generate = generateCommitMessage,
@@ -70,6 +78,19 @@ export async function run(
       const state = result.downloaded ? "downloaded" : "already cached";
 
       io.stdout.write(`Built-in model ready (${state}): ${result.path}\n`);
+      return 0;
+    } catch (error) {
+      io.stderr.write(`${error.message}\n`);
+      return 1;
+    }
+  }
+
+  if (args.length === 1 && args[0] === "--clear-model") {
+    try {
+      const result = await clearModel();
+      const state = result.cleared ? "cleared" : "is not cached";
+
+      io.stdout.write(`Built-in model ${state}: ${result.path}\n`);
       return 0;
     } catch (error) {
       io.stderr.write(`${error.message}\n`);

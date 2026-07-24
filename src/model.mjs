@@ -85,6 +85,34 @@ export async function ensureBuiltInModel(options = {}) {
   });
 }
 
+export async function clearBuiltInModel(options = {}) {
+  const path = options.path || getBuiltInModelPath(options);
+
+  await mkdir(dirname(path), { recursive: true });
+
+  const downloadLock = await acquireDownloadLock(
+    path,
+    `${path}.lock`,
+    options.lockOptions,
+  );
+
+  try {
+    downloadLock.assertOwned();
+
+    const removed = [];
+
+    for (const artifactPath of [`${path}.part`, `${path}.json`, path]) {
+      removed.push(await unlinkIfPresent(artifactPath));
+    }
+
+    downloadLock.assertOwned();
+
+    return { path, cleared: removed.some(Boolean) };
+  } finally {
+    await downloadLock.release().catch(() => {});
+  }
+}
+
 // The model parameter is internal so tests can exercise downloads with tiny fixtures.
 // Product callers use ensureBuiltInModel and never choose a model.
 export async function ensureModel(
@@ -282,6 +310,19 @@ function isProcessAlive(pid) {
     return true;
   } catch (error) {
     return error.code === "EPERM";
+  }
+}
+
+async function unlinkIfPresent(path) {
+  try {
+    await unlink(path);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+
+    throw error;
   }
 }
 
