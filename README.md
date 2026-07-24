@@ -59,6 +59,7 @@ gitkum [options]
 
       --clear-model     Delete the downloaded model from the cache
       --download-model  Download and verify the model for offline use
+      --model-info      Show information about the built-in model and its cache
   -h, --help            Show help
   -v, --version         Show version
 ```
@@ -72,6 +73,15 @@ To prepare before going offline:
 ```sh
 node bin/cli.mjs --download-model
 ```
+
+To see the built-in model identity, verification status, cache path, size,
+SHA-256 digest, and pinned download source:
+
+```sh
+node bin/cli.mjs --model-info
+```
+
+This inspects the cache without downloading the model.
 
 To reclaim the space used by the downloaded model:
 

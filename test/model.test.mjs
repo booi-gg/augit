@@ -18,6 +18,7 @@ import {
   clearBuiltInModel,
   ensureModel,
   getCacheDirectory,
+  inspectModel,
 } from "../src/model.mjs";
 
 function fixtureModel(contents) {
@@ -82,6 +83,37 @@ test("downloads, verifies, and reuses a cached model", async () => {
     downloaded: contents.length,
     total: contents.length,
   });
+});
+
+test("inspects missing, verified, and invalid model caches", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const path = join(directory, "models", "fixture.gguf");
+  const contents = Buffer.from("tiny verified model");
+  const model = fixtureModel(contents);
+
+  const missing = await inspectModel(model, { path });
+
+  await ensureModel(model, {
+    path,
+    fetch: async () => new Response(contents),
+  });
+
+  const ready = await inspectModel(model, { path });
+
+  await writeFile(path, Buffer.from("tampered model data"));
+
+  const invalid = await inspectModel(model, { path });
+
+  assert.deepEqual(missing, {
+    model,
+    path,
+    state: "missing",
+    file: null,
+  });
+  assert.equal(ready.state, "ready");
+  assert.equal(ready.file.byteLength, contents.length);
+  assert.match(ready.file.modifiedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(invalid.state, "invalid");
 });
 
 test("clears the cached model and its download artifacts", async () => {

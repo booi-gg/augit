@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { run } from "../src/index.mjs";
+import { BUILT_IN_MODEL, run } from "../src/index.mjs";
 
 const cli = fileURLToPath(new URL("../bin/cli.mjs", import.meta.url));
 const packageJsonUrl = new URL("../package.json", import.meta.url);
@@ -20,6 +20,7 @@ test("prints help when requested", () => {
   assert.match(result.stdout, /gitkum \[options\]/);
   assert.match(result.stdout, /Generate concise Git commit messages/);
   assert.match(result.stdout, /--clear-model/);
+  assert.match(result.stdout, /--model-info/);
 });
 
 test("prints the package version", () => {
@@ -29,6 +30,64 @@ test("prints the package version", () => {
 
   assert.equal(result.status, 0);
   assert.equal(result.stdout, `${version}\n`);
+});
+
+test("shows information about the downloaded built-in model", async () => {
+  let calls = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["--model-info"], io, {
+    async getModelInfo() {
+      calls += 1;
+      return {
+        model: BUILT_IN_MODEL,
+        path: "/cache/built-in.gguf",
+        state: "ready",
+        file: {
+          byteLength: BUILT_IN_MODEL.byteLength,
+          modifiedAt: "2026-07-24T00:00:00.000Z",
+        },
+      };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(calls, 1);
+  assert.equal(stderr, "");
+  assert.match(stdout, /^Built-in model\n/);
+  assert.match(stdout, /Name: Qwen2\.5-Coder-1\.5B-Instruct Q4_K_M/);
+  assert.match(stdout, /Status: downloaded and verified/);
+  assert.match(stdout, /Path: \/cache\/built-in\.gguf/);
+  assert.match(stdout, /Size: 1\.12 GB \(1,117,320,768 bytes\)/);
+  assert.match(stdout, new RegExp(`SHA-256: ${BUILT_IN_MODEL.sha256}`));
+  assert.match(stdout, /Source: https:\/\/huggingface\.co\//);
+});
+
+test("reports when the built-in model has not been downloaded", async () => {
+  let stdout = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write() {} },
+  };
+
+  const status = await run(["--model-info"], io, {
+    async getModelInfo() {
+      return {
+        model: BUILT_IN_MODEL,
+        path: "/cache/built-in.gguf",
+        state: "missing",
+        file: null,
+      };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.match(stdout, /Status: not downloaded/);
 });
 
 test("downloads the single built-in model without asking for a choice", async () => {

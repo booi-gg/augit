@@ -78,6 +78,48 @@ export function getBuiltInModelPath(options = {}) {
   return join(getCacheDirectory(options), "models", BUILT_IN_MODEL.filename);
 }
 
+export async function getBuiltInModelInfo(options = {}) {
+  const path = options.path || getBuiltInModelPath(options);
+
+  return inspectModel(BUILT_IN_MODEL, { path });
+}
+
+// The model parameter is internal so tests can inspect tiny fixtures.
+// Product callers use getBuiltInModelInfo and never choose a model.
+export async function inspectModel(model, { path }) {
+  if (!path) {
+    throw new TypeError("A model cache path is required.");
+  }
+
+  let file;
+
+  try {
+    file = await stat(path);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return { model, path, state: "missing", file: null };
+    }
+
+    throw error;
+  }
+
+  if (!file.isFile()) {
+    return { model, path, state: "invalid", file: null };
+  }
+
+  const verified = await isCachedModelValid(model, path);
+
+  return {
+    model,
+    path,
+    state: verified ? "ready" : "invalid",
+    file: {
+      byteLength: file.size,
+      modifiedAt: file.mtime.toISOString(),
+    },
+  };
+}
+
 export async function ensureBuiltInModel(options = {}) {
   return ensureModel(BUILT_IN_MODEL, {
     ...options,

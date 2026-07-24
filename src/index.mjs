@@ -7,6 +7,7 @@ import {
   BUILT_IN_MODEL,
   clearBuiltInModel,
   ensureBuiltInModel,
+  getBuiltInModelInfo,
   getBuiltInModelPath,
 } from "./model.mjs";
 
@@ -20,6 +21,7 @@ Usage:
 Options:
       --clear-model     Delete the downloaded model from the cache
       --download-model  Download and verify the model for offline use
+      --model-info      Show information about the built-in model and its cache
   -h, --help            Show help
   -v, --version         Show version
 
@@ -32,6 +34,7 @@ export {
   BUILT_IN_MODEL,
   clearBuiltInModel,
   ensureBuiltInModel,
+  getBuiltInModelInfo,
   getBuiltInModelPath,
 };
 export { extractKeyConcepts, inferRequiredType } from "./classify.mjs";
@@ -55,6 +58,7 @@ export async function run(
     cwd = process.cwd(),
     ensureModel = ensureBuiltInModel,
     generate = generateCommitMessage,
+    getModelInfo = getBuiltInModelInfo,
     promptNoStagedChanges = promptForNoStagedChanges,
     stageChanges = stageAllChanges,
   } = {},
@@ -64,6 +68,18 @@ export async function run(
     const packageJson = JSON.parse(await readFile(packageUrl, "utf8"));
     io.stdout.write(`${packageJson.version}\n`);
     return 0;
+  }
+
+  if (args.length === 1 && args[0] === "--model-info") {
+    try {
+      const info = await getModelInfo();
+
+      io.stdout.write(formatModelInfo(info));
+      return 0;
+    } catch (error) {
+      io.stderr.write(`${error.message}\n`);
+      return 1;
+    }
   }
 
   if (args.length === 1 && args[0] === "--download-model") {
@@ -250,4 +266,30 @@ function formatBytes(bytes) {
   const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
 
   return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
+}
+
+function formatModelInfo({ file, model, path, state }) {
+  const status = {
+    invalid: "downloaded but failed verification",
+    missing: "not downloaded",
+    ready: "downloaded and verified",
+  }[state];
+  const lines = [
+    "Built-in model",
+    `  Name: ${model.name}`,
+    `  ID: ${model.id}`,
+    `  Status: ${status || state}`,
+    `  Path: ${path}`,
+    `  Size: ${formatBytes(model.byteLength)} (${model.byteLength.toLocaleString("en-US")} bytes)`,
+  ];
+
+  if (file && file.byteLength !== model.byteLength) {
+    lines.push(
+      `  Cached size: ${formatBytes(file.byteLength)} (${file.byteLength.toLocaleString("en-US")} bytes)`,
+    );
+  }
+
+  lines.push(`  SHA-256: ${model.sha256}`, `  Source: ${model.url}`);
+
+  return `${lines.join("\n")}\n`;
 }
