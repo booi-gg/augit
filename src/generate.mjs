@@ -73,6 +73,12 @@ export async function generateCommit({
           );
         }
 
+        if (!normalized.body && safeContext.files.length > 1) {
+          throw new InvalidModelOutputError(
+            'body is required because the diff touches more than one file; add a "- " line for every changed file.',
+          );
+        }
+
         const usage = activeRuntime.getUsage?.();
 
         return {

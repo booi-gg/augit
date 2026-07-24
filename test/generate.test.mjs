@@ -90,6 +90,42 @@ test("retries one invalid model response with validation feedback", async () => 
   assert.match(prompts[1], /previous answer was invalid/i);
 });
 
+test("repairs a missing body when the diff touches more than one file", async () => {
+  const prompts = [];
+  const runtime = {
+    async generate({ prompt }) {
+      prompts.push(prompt);
+
+      if (prompts.length === 1) {
+        return { subject: "test: fix assertions and drop a case", body: "" };
+      }
+
+      return {
+        subject: "test: fix assertions and drop a case",
+        body:
+          "- Match the orange escape code in the color assertion\n" +
+          "- Remove the copy-matching prompt test",
+      };
+    },
+  };
+
+  const result = await generateCommit({
+    collector: async () => ({
+      ...fixtureContext(),
+      files: [
+        { status: "M", path: "test/interactive.test.mjs" },
+        { status: "M", path: "test/prompt.test.mjs" },
+      ],
+    }),
+    ensureModel: async () => ({ path: "/cache/model.gguf" }),
+    runtime,
+  });
+
+  assert.equal(prompts.length, 2);
+  assert.match(prompts[1], /body is required/i);
+  assert.match(result.body, /orange escape code/);
+});
+
 test("regeneration rejects and repairs a repeated proposal", async () => {
   const previousMessage = "feat(cli): review generated commits";
   const prompts = [];
