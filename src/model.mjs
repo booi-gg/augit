@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import {
+  lstat,
   mkdir,
-  open,
   readFile,
   rename,
   rm,
   stat,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -14,8 +15,14 @@ import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+import lockfile from "proper-lockfile";
+
 const MODEL_REVISION = "38f6bab61d341b23a6c00226f32c0d6148bf9f43";
 const MODEL_FILENAME = "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf";
+const DEFAULT_LOCK_STALE_MS = 30_000;
+const DEFAULT_LOCK_WAIT_MS = 2 * 60 * 60 * 1_000;
+const DEFAULT_LOCK_RETRY_MS = 250;
+const DEFAULT_LEGACY_LOCK_GRACE_MS = 2_000;
 
 export const BUILT_IN_MODEL = Object.freeze({
   id: "qwen2.5-coder-1.5b-instruct-q4-k-m",
@@ -61,10 +68,7 @@ export function getCacheDirectory({
   }
 
   if (platform === "win32") {
-    return join(
-      env.LOCALAPPDATA || join(home, "AppData", "Local"),
-      "gikum",
-    );
+    return join(env.LOCALAPPDATA || join(home, "AppData", "Local"), "gikum");
   }
 
   return join(env.XDG_CACHE_HOME || join(home, ".cache"), "gikum");
@@ -90,6 +94,7 @@ export async function ensureModel(
     offline = false,
     onProgress = () => {},
     path,
+    lockOptions = {},
   },
 ) {
   if (!path) {
@@ -113,11 +118,7 @@ export async function ensureModel(
   }
 
   const lockPath = `${path}.lock`;
-  const lock = await acquireDownloadLock(model, path, lockPath);
-
-  if (!lock) {
-    return { model, path, downloaded: false };
-  }
+  const downloadLock = await acquireDownloadLock(path, lockPath, lockOptions);
 
   const partialPath = `${path}.part`;
 
@@ -128,42 +129,150 @@ export async function ensureModel(
 
     await rm(partialPath, { force: true });
     await downloadAndVerify(model, partialPath, fetchModel, onProgress);
+    downloadLock.assertOwned();
     await rename(partialPath, path);
     await writeVerificationMetadata(model, path);
 
     return { model, path, downloaded: true };
   } finally {
     await rm(partialPath, { force: true }).catch(() => {});
-    await lock.close().catch(() => {});
-    await rm(lockPath, { force: true }).catch(() => {});
+    await downloadLock.release().catch(() => {});
   }
 }
 
-async function acquireDownloadLock(model, path, lockPath) {
+async function acquireDownloadLock(
+  path,
+  lockPath,
+  {
+    staleMs = DEFAULT_LOCK_STALE_MS,
+    waitMs = DEFAULT_LOCK_WAIT_MS,
+    retryMs = DEFAULT_LOCK_RETRY_MS,
+    legacyGraceMs = DEFAULT_LEGACY_LOCK_GRACE_MS,
+  } = {},
+) {
+  await clearLegacyFileLock(lockPath, {
+    graceMs: legacyGraceMs,
+    retryMs,
+    waitMs,
+  });
+
+  let compromisedError;
+
+  try {
+    const release = await lockfile.lock(path, {
+      realpath: false,
+      lockfilePath: lockPath,
+      stale: Math.max(staleMs, 2_000),
+      update: Math.max(1_000, Math.floor(Math.max(staleMs, 2_000) / 3)),
+      retries: {
+        forever: true,
+        factor: 1,
+        minTimeout: retryMs,
+        maxTimeout: retryMs,
+        randomize: true,
+        maxRetryTime: waitMs,
+      },
+      onCompromised(error) {
+        compromisedError = error;
+      },
+    });
+
+    return {
+      assertOwned() {
+        if (compromisedError) {
+          throw new ModelDownloadError(
+            "The model download lock was lost. Run gikum again to retry.",
+            { cause: compromisedError },
+          );
+        }
+      },
+      release,
+    };
+  } catch (cause) {
+    throw new ModelDownloadError(
+      "Timed out waiting for another built-in model download to finish.",
+      { cause },
+    );
+  }
+}
+
+async function clearLegacyFileLock(lockPath, { graceMs, retryMs, waitMs }) {
+  const deadline = Date.now() + waitMs;
+
   while (true) {
+    let lockStat;
+
     try {
-      const lock = await open(lockPath, "wx");
-      await lock.writeFile(`${process.pid}\n`);
-      return lock;
+      lockStat = await lstat(lockPath);
     } catch (error) {
-      if (error.code !== "EEXIST") {
+      if (error.code === "ENOENT") {
+        return;
+      }
+
+      throw error;
+    }
+
+    if (lockStat.isDirectory()) {
+      return;
+    }
+
+    if (!lockStat.isFile()) {
+      throw new ModelDownloadError(
+        `Cannot use the model download lock at ${lockPath}.`,
+      );
+    }
+
+    const owner = Number.parseInt(
+      await readFile(lockPath, "utf8").catch(() => ""),
+      10,
+    );
+    const ownerIsDead = Number.isInteger(owner) && !isProcessAlive(owner);
+    const isAbandoned =
+      ownerIsDead ||
+      (!Number.isInteger(owner) && Date.now() - lockStat.mtimeMs >= graceMs);
+
+    if (isAbandoned) {
+      try {
+        await unlink(lockPath);
+        return;
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          return;
+        }
+
+        if (error.code === "EISDIR") {
+          return;
+        }
+
+        if (error.code === "EPERM") {
+          let currentLock;
+
+          try {
+            currentLock = await lstat(lockPath);
+          } catch (currentError) {
+            if (currentError.code === "ENOENT") {
+              return;
+            }
+
+            throw error;
+          }
+
+          if (currentLock.isDirectory()) {
+            return;
+          }
+        }
+
         throw error;
       }
     }
 
-    if (await isCachedModelValid(model, path, { verifyUntracked: false })) {
-      return null;
+    if (Date.now() >= deadline) {
+      throw new ModelDownloadError(
+        "Timed out waiting for another built-in model download to finish.",
+      );
     }
 
-    const owner = Number.parseInt(await readFile(lockPath, "utf8").catch(() => ""));
-
-    if (Number.isInteger(owner) && !isProcessAlive(owner)) {
-      await rm(lockPath, { force: true });
-      await rm(`${path}.part`, { force: true });
-      continue;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, retryMs));
   }
 }
 
@@ -258,7 +367,7 @@ async function isCachedModelValid(
   let file;
 
   try {
-    file = await stat(path);
+    file = await stat(path, { bigint: true });
   } catch (error) {
     if (error.code === "ENOENT") {
       return false;
@@ -267,15 +376,17 @@ async function isCachedModelValid(
     throw error;
   }
 
-  if (!file.isFile() || file.size !== model.byteLength) {
+  if (!file.isFile() || file.size !== BigInt(model.byteLength)) {
     return false;
   }
 
   const metadata = await readVerificationMetadata(path);
+  const initialFingerprint = fingerprintStat(file);
 
   if (
     metadata?.sha256 === model.sha256 &&
-    metadata?.byteLength === model.byteLength
+    metadata?.byteLength === model.byteLength &&
+    fingerprintsEqual(metadata.file, initialFingerprint)
   ) {
     return true;
   }
@@ -290,7 +401,25 @@ async function isCachedModelValid(
     return false;
   }
 
-  await writeVerificationMetadata(model, path);
+  let finalFile;
+
+  try {
+    finalFile = await stat(path, { bigint: true });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+
+    throw error;
+  }
+
+  const finalFingerprint = fingerprintStat(finalFile);
+
+  if (!fingerprintsEqual(initialFingerprint, finalFingerprint)) {
+    return false;
+  }
+
+  await writeVerificationMetadata(model, path, finalFingerprint);
   return true;
 }
 
@@ -316,16 +445,41 @@ async function readVerificationMetadata(path) {
   }
 }
 
-async function writeVerificationMetadata(model, path) {
+function fingerprintStat(file) {
+  return {
+    size: file.size.toString(),
+    mtimeNs: file.mtimeNs.toString(),
+    ctimeNs: file.ctimeNs.toString(),
+    ino: file.ino.toString(),
+  };
+}
+
+function fingerprintsEqual(left, right) {
+  return (
+    left?.size === right?.size &&
+    left?.mtimeNs === right?.mtimeNs &&
+    left?.ctimeNs === right?.ctimeNs &&
+    left?.ino === right?.ino
+  );
+}
+
+async function writeVerificationMetadata(model, path, fileFingerprint) {
   const metadataPath = `${path}.json`;
   const temporaryPath = `${metadataPath}.${process.pid}.${randomUUID()}.tmp`;
+  const file =
+    fileFingerprint || fingerprintStat(await stat(path, { bigint: true }));
   const metadata = {
     model: model.id,
     byteLength: model.byteLength,
     sha256: model.sha256,
     source: model.url,
+    file,
   };
 
-  await writeFile(temporaryPath, `${JSON.stringify(metadata, null, 2)}\n`);
-  await rename(temporaryPath, metadataPath);
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(metadata, null, 2)}\n`);
+    await rename(temporaryPath, metadataPath);
+  } finally {
+    await rm(temporaryPath, { force: true }).catch(() => {});
+  }
 }

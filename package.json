@@ -1,9 +1,24 @@
 {
-  "name": "chill-commit",
-  "version": "0.0.0",
-  "private": true,
+  "name": "gikum",
+  "version": "0.1.0",
   "description": "Generate concise Git commit messages with a small local language model.",
+  "keywords": [
+    "commit",
+    "conventional-commits",
+    "git",
+    "local-ai",
+    "llama"
+  ],
+  "license": "MIT",
+  "author": "Booi <booimangang@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/booi-gg/gitkum.git"
+  },
+  "bugs": "https://github.com/booi-gg/gitkum/issues",
+  "homepage": "https://github.com/booi-gg/gitkum#readme",
   "type": "module",
+  "sideEffects": false,
   "bin": {
     "gikum": "./bin/cli.mjs"
   },
@@ -11,15 +26,37 @@
     ".": "./src/index.mjs"
   },
   "files": [
+    "benchmark",
     "bin",
-    "src"
+    "docs",
+    "scripts",
+    "src",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
-    "check": "node --check bin/cli.mjs && node --check src/index.mjs && node --test",
-    "test": "node --test"
+    "benchmark": "node benchmark/run.mjs",
+    "check": "pnpm format:check && node --check bin/cli.mjs && node --check src/index.mjs && node --test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepack": "pnpm check",
+    "smoke:runtime": "node scripts/smoke-runtime.mjs",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=65 --test-coverage-functions=75"
   },
   "engines": {
     "node": ">=22.13"
   },
-  "packageManager": "pnpm@10.33.2"
+  "packageManager": "pnpm@10.33.2",
+  "dependencies": {
+    "node-llama-cpp": "3.19.1",
+    "proper-lockfile": "4.1.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "node-llama-cpp"
+    ]
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
+  }
 }

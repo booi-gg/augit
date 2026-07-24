@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -42,7 +49,7 @@ test("uses the platform cache directory", () => {
       home: "C:\\Users\\test",
       platform: "win32",
     }),
-    "C:\\Users\\test\\AppData\\Local/gikum",
+    join("C:\\Users\\test\\AppData\\Local", "gikum"),
   );
 });
 
@@ -106,4 +113,64 @@ test("explains when an uncached model is unavailable offline", async () => {
       error instanceof ModelUnavailableOfflineError &&
       error.code === "MODEL_UNAVAILABLE_OFFLINE",
   );
+});
+
+test("does not trust verification metadata after the model file changes", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const path = join(directory, "models", "fixture.gguf");
+  const contents = Buffer.from("valid");
+  const model = fixtureModel(contents);
+
+  await ensureModel(model, {
+    path,
+    fetch: async () => new Response(contents),
+  });
+  await writeFile(path, Buffer.from("evil!"));
+
+  await assert.rejects(
+    ensureModel(model, { path, offline: true }),
+    (error) => error instanceof ModelUnavailableOfflineError,
+  );
+});
+
+test("recovers an abandoned legacy lock instead of waiting forever", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const path = join(directory, "models", "fixture.gguf");
+  const contents = Buffer.from("fixture");
+  const model = fixtureModel(contents);
+  const lockPath = `${path}.lock`;
+
+  await mkdir(join(directory, "models"), { recursive: true });
+  await writeFile(lockPath, "");
+  await utimes(lockPath, new Date(0), new Date(0));
+
+  const result = await ensureModel(model, {
+    path,
+    fetch: async () => new Response(contents),
+    lockOptions: { legacyGraceMs: 0, waitMs: 200 },
+  });
+
+  assert.equal(result.downloaded, true);
+  assert.deepEqual(await readFile(path), contents);
+});
+
+test("coordinates concurrent downloads of the same model", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const path = join(directory, "models", "fixture.gguf");
+  const contents = Buffer.from("fixture");
+  const model = fixtureModel(contents);
+  let requests = 0;
+  const fetch = async () => {
+    requests += 1;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    return new Response(contents);
+  };
+
+  const results = await Promise.all([
+    ensureModel(model, { path, fetch }),
+    ensureModel(model, { path, fetch }),
+  ]);
+
+  assert.equal(requests, 1);
+  assert.equal(results.filter((result) => result.downloaded).length, 1);
 });

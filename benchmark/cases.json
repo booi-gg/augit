@@ -1,0 +1,95 @@
+[
+  {
+    "id": "fix-null-profile",
+    "expectedTypes": ["fix"],
+    "keywordGroups": [
+      ["null", "missing"],
+      ["profile", "user"]
+    ],
+    "context": {
+      "repository": "account-service",
+      "files": [{ "status": "M", "path": "src/profile.mjs" }],
+      "recentSubjects": ["fix(api): handle missing sessions"],
+      "diff": "diff --git a/src/profile.mjs b/src/profile.mjs\n--- a/src/profile.mjs\n+++ b/src/profile.mjs\n@@ -12,1 +12,4 @@\n-export function displayName(user) { return user.profile.name; }\n+export function displayName(user) {\n+  if (!user?.profile) return \"Anonymous\";\n+  return user.profile.name;\n+}\n",
+      "diffTruncated": false
+    }
+  },
+  {
+    "id": "feat-dry-run",
+    "expectedTypes": ["feat"],
+    "keywordGroups": [
+      ["dry run", "dry-run"],
+      ["delet", "remove"]
+    ],
+    "context": {
+      "repository": "cleanup-cli",
+      "files": [{ "status": "M", "path": "src/cli.mjs" }],
+      "recentSubjects": ["feat(cli): add verbose output"],
+      "diff": "diff --git a/src/cli.mjs b/src/cli.mjs\n--- a/src/cli.mjs\n+++ b/src/cli.mjs\n@@ -4,2 +4,5 @@\n+const dryRun = args.includes(\"--dry-run\");\n for (const file of expiredFiles) {\n+  if (dryRun) console.log(`Would delete ${file}`);\n+  else\n   await rm(file);\n }\n",
+      "diffTruncated": false
+    }
+  },
+  {
+    "id": "docs-install",
+    "expectedTypes": ["docs"],
+    "keywordGroups": [
+      ["install", "setup"],
+      ["pnpm", "node"]
+    ],
+    "context": {
+      "repository": "widget",
+      "files": [{ "status": "M", "path": "README.md" }],
+      "recentSubjects": ["docs: explain configuration"],
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -2,0 +3,6 @@\n+## Install\n+\n+Requires Node.js 22 and pnpm 10.\n+\n+Run `pnpm install`, then `pnpm check`.\n",
+      "diffTruncated": false
+    }
+  },
+  {
+    "id": "test-download-lock",
+    "expectedTypes": ["test"],
+    "keywordGroups": [
+      ["concurrent", "lock"],
+      ["download", "model"]
+    ],
+    "context": {
+      "repository": "model-tool",
+      "files": [{ "status": "M", "path": "test/model.test.mjs" }],
+      "recentSubjects": ["test: cover failed downloads"],
+      "diff": "diff --git a/test/model.test.mjs b/test/model.test.mjs\n--- a/test/model.test.mjs\n+++ b/test/model.test.mjs\n@@ -20,0 +21,5 @@\n+test(\"coordinates concurrent model downloads\", async () => {\n+  const results = await Promise.all([download(), download()]);\n+  assert.equal(requests, 1);\n+  assert.equal(results.length, 2);\n+});\n",
+      "diffTruncated": false
+    }
+  },
+  {
+    "id": "refactor-parser",
+    "expectedTypes": ["refactor"],
+    "keywordGroups": [
+      ["parser", "parsing"],
+      ["extract", "separate"]
+    ],
+    "context": {
+      "repository": "config-reader",
+      "files": [
+        { "status": "M", "path": "src/index.mjs" },
+        { "status": "A", "path": "src/parser.mjs" }
+      ],
+      "recentSubjects": ["refactor(core): isolate validation"],
+      "diff": "diff --git a/src/index.mjs b/src/index.mjs\n--- a/src/index.mjs\n+++ b/src/index.mjs\n@@ -1,4 +1,2 @@\n-export function load(value) {\n-  const parsed = JSON.parse(value);\n-  return validate(parsed);\n-}\n+export { parseConfig as load } from \"./parser.mjs\";\ndiff --git a/src/parser.mjs b/src/parser.mjs\nnew file mode 100644\n--- /dev/null\n+++ b/src/parser.mjs\n@@ -0,0 +1,4 @@\n+export function parseConfig(value) {\n+  const parsed = JSON.parse(value);\n+  return validate(parsed);\n+}\n",
+      "diffTruncated": false
+    }
+  },
+  {
+    "id": "ci-node-matrix",
+    "expectedTypes": ["ci"],
+    "keywordGroups": [
+      ["node", "runtime"],
+      ["matrix", "versions"]
+    ],
+    "context": {
+      "repository": "library",
+      "files": [{ "status": "M", "path": ".github/workflows/ci.yml" }],
+      "recentSubjects": ["ci: run tests on macOS"],
+      "diff": "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n--- a/.github/workflows/ci.yml\n+++ b/.github/workflows/ci.yml\n@@ -8,1 +8,4 @@\n-    runs-on: ubuntu-latest\n+    strategy:\n+      matrix:\n+        node: [22, 24]\n+    runs-on: ubuntu-latest\n",
+      "diffTruncated": false
+    }
+  }
+]
