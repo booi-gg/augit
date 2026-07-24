@@ -1,6 +1,6 @@
 {
   "name": "@booi-gg/gitkum",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Generate concise Git commit messages with a small local language model.",
   "keywords": [
     "commit",
