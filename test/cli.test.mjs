@@ -23,6 +23,19 @@ test("prints help when requested", () => {
   assert.match(result.stdout, /--model-info/);
 });
 
+test("prints help for the commit wrapper", () => {
+  const result = spawnSync(process.execPath, [cli, "commit", "--help"], {
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^gitkum commit\n/);
+  assert.match(result.stdout, /--all/);
+  assert.match(result.stdout, /--yes/);
+  assert.match(result.stdout, /-- GIT_ARGS/);
+  assert.match(result.stdout, /--no-verify/);
+});
+
 test("prints the package version", () => {
   const result = spawnSync(process.execPath, [cli, "--version"], {
     encoding: "utf8",
@@ -288,6 +301,209 @@ test("commits the approved generated message", async () => {
   assert.equal(stderr, "");
 });
 
+test("commit command reviews and commits the generated message", async () => {
+  const message = "feat(cli): add the commit wrapper";
+  const committed = [];
+  let disposed = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: {
+      isTTY: true,
+      write: (value) => (stdout += value),
+    },
+    stderr: {
+      isTTY: true,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run(["commit"], io, {
+    cwd: "/worktree",
+    async commitChanges(options) {
+      committed.push(options);
+      return {
+        stdout: "[branch abc1234] feat(cli): add the commit wrapper\n",
+        stderr: "",
+      };
+    },
+    createRuntime() {
+      return {
+        async dispose() {
+          disposed += 1;
+        },
+      };
+    },
+    async generate() {
+      return message;
+    },
+    async promptGeneratedCommit({ message: proposal }) {
+      assert.equal(proposal, message);
+      return "commit";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.deepEqual(committed, [
+    {
+      args: [],
+      cwd: "/worktree",
+      message,
+    },
+  ]);
+  assert.equal(disposed, 1);
+  assert.match(
+    stderr,
+    /\$ git commit --message 'feat\(cli\): add the commit wrapper' --/,
+  );
+  assert.match(stdout, /\[branch abc1234\]/);
+});
+
+test("commit --all --yes stages, commits, and forwards Git arguments", async () => {
+  const calls = [];
+  const message = "feat(cli): forward git commit flags";
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: false },
+    stdout: {
+      isTTY: false,
+      write: (value) => (stdout += value),
+    },
+    stderr: {
+      isTTY: false,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run(
+    ["commit", "--all", "--yes", "--", "--no-verify", "--signoff"],
+    io,
+    {
+      cwd: "/worktree",
+      async commitChanges(options) {
+        calls.push(["commit", options]);
+        return { stdout: "committed\n", stderr: "" };
+      },
+      createRuntime() {
+        calls.push(["runtime"]);
+        return {
+          async dispose() {
+            calls.push(["dispose"]);
+          },
+        };
+      },
+      async generate() {
+        calls.push(["generate"]);
+        return message;
+      },
+      async promptGeneratedCommit() {
+        throw new Error("automatic confirmation must not prompt");
+      },
+      async promptNoStagedChanges() {
+        throw new Error("--all must not prompt before staging");
+      },
+      async stageChanges(options) {
+        calls.push(["stage", options]);
+      },
+    },
+  );
+
+  assert.equal(status, 0);
+  assert.deepEqual(calls, [
+    ["stage", { cwd: "/worktree" }],
+    ["runtime"],
+    ["generate"],
+    ["dispose"],
+    [
+      "commit",
+      {
+        args: ["--no-verify", "--signoff"],
+        cwd: "/worktree",
+        message,
+      },
+    ],
+  ]);
+  assert.match(stdout, /Generated commit message:\n\nfeat\(cli\)/);
+  assert.match(stdout, /committed/);
+  assert.match(stderr, /^\$ git add --all --/);
+  assert.match(stderr, /--no-verify --signoff --/);
+});
+
+test("commit requires --yes outside an interactive terminal", async () => {
+  let commandCalls = 0;
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: false },
+    stdout: { isTTY: false, write() {} },
+    stderr: {
+      isTTY: false,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run(["commit"], io, {
+    createRuntime() {
+      commandCalls += 1;
+    },
+    async generate() {
+      commandCalls += 1;
+    },
+    async stageChanges() {
+      commandCalls += 1;
+    },
+  });
+
+  assert.equal(status, 1);
+  assert.equal(commandCalls, 0);
+  assert.match(stderr, /needs an interactive terminal/);
+  assert.match(stderr, /--yes/);
+});
+
+test("commit reports a clean tree after --all without loading the model", async () => {
+  let commitCalls = 0;
+  let disposed = 0;
+  let stageCalls = 0;
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: false },
+    stdout: { isTTY: false, write() {} },
+    stderr: {
+      isTTY: false,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run(["commit", "--all", "--yes"], io, {
+    async commitChanges() {
+      commitCalls += 1;
+    },
+    createRuntime() {
+      return {
+        async dispose() {
+          disposed += 1;
+        },
+      };
+    },
+    async generate() {
+      const error = new Error("No staged changes found.");
+      error.code = "NO_STAGED_CHANGES";
+      throw error;
+    },
+    async stageChanges() {
+      stageCalls += 1;
+    },
+  });
+
+  assert.equal(status, 1);
+  assert.equal(stageCalls, 1);
+  assert.equal(commitCalls, 0);
+  assert.equal(disposed, 1);
+  assert.match(stderr, /^\$ git add --all --/);
+  assert.match(stderr, /Nothing to commit; the working tree is clean/);
+});
+
 test("generates again before committing the replacement message", async () => {
   const messages = [
     "feat(cli): add generated commit menu",
@@ -447,6 +663,20 @@ test("rejects unknown options", async () => {
   assert.equal(status, 2);
   assert.match(stderr, /Unknown option/);
   assert.match(stderr, /does not expose model selection/);
+});
+
+test("rejects unknown commit options before the Git separator", async () => {
+  let stderr = "";
+  const io = {
+    stdout: { write() {} },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["commit", "--no-verify"], io);
+
+  assert.equal(status, 2);
+  assert.match(stderr, /Unknown commit option: --no-verify/);
+  assert.match(stderr, /gitkum commit --help/);
 });
 
 test("prints generation errors without a stack trace", async () => {

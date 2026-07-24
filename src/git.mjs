@@ -96,6 +96,7 @@ export async function stageAllChanges({ cwd = process.cwd() } = {}) {
 }
 
 export async function commitStagedChanges({
+  args = [],
   cwd = process.cwd(),
   message,
 } = {}) {
@@ -103,7 +104,11 @@ export async function commitStagedChanges({
     throw new TypeError("A non-empty commit message is required.");
   }
 
-  return runGit(["commit", "--message", message, "--"], { cwd });
+  if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
+    throw new TypeError("Git commit arguments must be an array of strings.");
+  }
+
+  return runGit(["commit", "--message", message, ...args, "--"], { cwd });
 }
 
 export function parseNameStatus(value, { truncated = false } = {}) {
