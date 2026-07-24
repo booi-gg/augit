@@ -98,6 +98,7 @@ gitkum [options]
 gitkum commit [options] [-- GIT_ARGS...]
 
   commit                Draft, review, and commit staged changes
+  config                Get or set persisted configuration
       --clear-model     Delete the downloaded model from the cache
       --download-model  Download and verify the model for offline use
       --model-info      Show information about the built-in model and its cache
@@ -185,6 +186,40 @@ Set `GIKUM_CACHE_DIR` to override the cache root. Downloads use an atomic,
 heartbeat-backed lock, a temporary `.part` file, size verification, and
 SHA-256 verification. A cached file is rehashed whenever its filesystem
 fingerprint changes.
+
+## Configuration
+
+GitKum persists a small config file that toggles a couple of optional
+behaviors. Both default to off, so the CLI behaves exactly as described above
+until you opt in.
+
+| Key                | Default | Effect when `true`                                                                  |
+| ------------------ | ------- | ----------------------------------------------------------------------------------- |
+| `autoStageAll`     | `false` | Skip the "Stage all changes and continue" prompt and stage everything automatically |
+| `showUsageSummary` | `false` | Print the "Generation usage" (tokens, wall time, CPU, GPU) summary after generating |
+
+Manage these with the `config` command:
+
+```sh
+# Show every key and its current value
+gitkum config list
+
+# Read a single key
+gitkum config get autoStageAll
+
+# Turn a behavior on or off
+gitkum config set autoStageAll true
+gitkum config set showUsageSummary true
+```
+
+The config file lives alongside other GitKum state, at:
+
+- macOS: `~/Library/Preferences/gikum/config.json`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/gikum/config.json`
+- Windows: `%APPDATA%\gikum\config.json`
+
+Set `GIKUM_CONFIG_DIR` to override the config directory. You can also edit
+`config.json` directly; unset or unknown keys fall back to their defaults.
 
 ## Library
 

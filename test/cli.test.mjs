@@ -4,11 +4,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-  BUILT_IN_MODEL,
-  InvalidModelOutputError,
-  run,
-} from "../src/index.mjs";
+import { BUILT_IN_MODEL, InvalidModelOutputError, run } from "../src/index.mjs";
 
 const cli = fileURLToPath(new URL("../bin/cli.mjs", import.meta.url));
 const packageJsonUrl = new URL("../package.json", import.meta.url);
@@ -343,6 +339,9 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
     async generate() {
       return "feat(cli): report local inference usage";
     },
+    async loadConfig() {
+      return { autoStageAll: false, showUsageSummary: true };
+    },
   });
 
   assert.equal(status, 0);
@@ -351,6 +350,45 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
   assert.match(stderr, /Wall time: 2\.50 s/);
   assert.match(stderr, /CPU: Fixture CPU, 350 ms time, 250 MB allocated/);
   assert.match(stderr, /GPU: Metal, Fixture GPU, 1\.10 GB allocated/);
+});
+
+test("hides the usage summary by default", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: {
+      isTTY: false,
+      write: (value) => (stdout += value),
+    },
+    stderr: {
+      isTTY: true,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run([], io, {
+    createRuntime() {
+      return {
+        async dispose() {},
+        getUsage() {
+          return {
+            tokens: { input: 100, output: 10, total: 110 },
+          };
+        },
+      };
+    },
+    async generate() {
+      return "feat(cli): default to a quiet usage summary";
+    },
+    async loadConfig() {
+      return { autoStageAll: false, showUsageSummary: false };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(stdout, "feat(cli): default to a quiet usage summary\n");
+  assert.doesNotMatch(stderr, /Generation usage/);
 });
 
 test("commits the approved generated message", async () => {
@@ -752,6 +790,9 @@ test("can stage all changes and retry generation", async () => {
       assert.equal(cwd, "/worktree");
       return true;
     },
+    async loadConfig() {
+      return { autoStageAll: false, showUsageSummary: false };
+    },
     async promptNoStagedChanges() {
       promptCalls += 1;
       return "stage";
@@ -771,6 +812,52 @@ test("can stage all changes and retry generation", async () => {
   assert.match(stderr, /Staging all changes/);
 });
 
+test("auto-stages without prompting when autoStageAll is enabled", async () => {
+  let generateCalls = 0;
+  let stageCalls = 0;
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run([], io, {
+    cwd: "/worktree",
+    async generate({ onStatus }) {
+      generateCalls += 1;
+      onStatus({ phase: "collecting" });
+
+      if (generateCalls === 1) {
+        const error = new Error("No staged changes found.");
+        error.code = "NO_STAGED_CHANGES";
+        throw error;
+      }
+
+      return "feat(cli): auto-stage before generation";
+    },
+    async hasChanges({ cwd }) {
+      assert.equal(cwd, "/worktree");
+      return true;
+    },
+    async loadConfig() {
+      return { autoStageAll: true, showUsageSummary: false };
+    },
+    async promptNoStagedChanges() {
+      throw new Error("autoStageAll must not prompt");
+    },
+    async stageChanges({ cwd }) {
+      stageCalls += 1;
+      assert.equal(cwd, "/worktree");
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(generateCalls, 2);
+  assert.equal(stageCalls, 1);
+  assert.equal(stdout, "feat(cli): auto-stage before generation\n");
+});
+
 test("can cancel without staging changes", async () => {
   let stageCalls = 0;
   let stdout = "";
@@ -788,6 +875,9 @@ test("can cancel without staging changes", async () => {
     },
     async hasChanges() {
       return true;
+    },
+    async loadConfig() {
+      return { autoStageAll: false, showUsageSummary: false };
     },
     async promptNoStagedChanges() {
       return "cancel";
@@ -856,4 +946,34 @@ test("aborts a clean tree without showing the staging menu", async () => {
   assert.equal(status, 1);
   assert.equal(promptCalls, 0);
   assert.equal(stderr, "No staged changes found.\n");
+});
+
+test("dispatches gitkum config to the config command", async () => {
+  let stdout = "";
+  const io = {
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write() {} },
+  };
+
+  const status = await run(["config", "list"], io, {
+    async loadConfig() {
+      return { autoStageAll: true, showUsageSummary: false };
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(stdout, "autoStageAll = true\nshowUsageSummary = false\n");
+});
+
+test("reports config command usage errors without crashing", async () => {
+  let stderr = "";
+  const io = {
+    stdout: { write() {} },
+    stderr: { write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["config", "get", "nope"], io);
+
+  assert.equal(status, 2);
+  assert.match(stderr, /Unknown config key: nope/);
 });

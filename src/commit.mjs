@@ -1,3 +1,4 @@
+import { DEFAULT_CONFIG } from "./config.mjs";
 import { generateCommitMessage } from "./generate.mjs";
 import {
   commitStagedChanges,
@@ -68,6 +69,7 @@ export async function runCommitWorkflow(
   io = process,
   {
     commitChanges = commitStagedChanges,
+    config = DEFAULT_CONFIG,
     createRuntime = createNodeLlamaRuntime,
     cwd = process.cwd(),
     generate = generateCommitMessage,
@@ -145,10 +147,12 @@ export async function runCommitWorkflow(
         return 1;
       }
 
-      const action = await promptNoStagedChanges({
-        input: io.stdin,
-        output: io.stderr,
-      });
+      const action = config.autoStageAll
+        ? "stage"
+        : await promptNoStagedChanges({
+            input: io.stdin,
+            output: io.stderr,
+          });
 
       if (action === null) {
         io.stderr.write("Stage changes with git add, or pass --all.\n");
@@ -237,9 +241,7 @@ export async function runCommitWorkflow(
             throw error;
           }
 
-          io.stderr.write(
-            `${error.message} Keeping the previous message.\n`,
-          );
+          io.stderr.write(`${error.message} Keeping the previous message.\n`);
         }
 
         continue;
@@ -296,7 +298,9 @@ export async function runCommitWorkflow(
     try {
       await runtime?.dispose?.();
     } finally {
-      const summary = formatGenerationUsage(usage);
+      const summary = config.showUsageSummary
+        ? formatGenerationUsage(usage)
+        : "";
 
       if (summary) {
         io.stderr.write(summary);

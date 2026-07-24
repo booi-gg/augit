@@ -5,6 +5,11 @@ import {
   parseCommitCommandArgs,
   runCommitWorkflow,
 } from "./commit.mjs";
+import {
+  ConfigCommandUsageError,
+  loadConfig as loadConfigFile,
+  runConfigCommand,
+} from "./config.mjs";
 import { generateCommitMessage } from "./generate.mjs";
 import {
   commitStagedChanges,
@@ -39,6 +44,7 @@ Usage:
 
 Commands:
   commit                Draft, review, and commit staged changes
+  config                Get or set persisted configuration
 
 Options:
       --clear-model     Delete the downloaded model from the cache
@@ -48,6 +54,7 @@ Options:
   -v, --version         Show version
 
 Run gitkum commit --help for staging, automation, and Git passthrough options.
+Run gitkum config --help for the list of configurable keys.
 For compatibility, running without a command generates and reviews a message.
 In non-interactive use, the bare command prints the message without committing.
 The built-in model is selected automatically; model selection is not exposed.
@@ -86,6 +93,15 @@ export {
   runCommitWorkflow,
 } from "./commit.mjs";
 export {
+  ConfigCommandUsageError,
+  DEFAULT_CONFIG,
+  getConfigDirectory,
+  getConfigFilePath,
+  loadConfig,
+  runConfigCommand,
+  saveConfig,
+} from "./config.mjs";
+export {
   GitContextError,
   NoStagedChangesError,
   NotGitRepositoryError,
@@ -117,6 +133,7 @@ export async function run(
     getModelInfo = getBuiltInModelInfo,
     hasChanges = hasWorkingTreeChanges,
     inspectRuntime = inspectNodeLlamaRuntime,
+    loadConfig = loadConfigFile,
     promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
     stageChanges = stageAllChanges,
@@ -183,6 +200,19 @@ export async function run(
     return 0;
   }
 
+  if (args[0] === "config") {
+    try {
+      return await runConfigCommand(args.slice(1), io, { load: loadConfig });
+    } catch (error) {
+      if (!(error instanceof ConfigCommandUsageError)) {
+        throw error;
+      }
+
+      io.stderr.write(`${error.message}\n`);
+      return 2;
+    }
+  }
+
   let commandOptions;
 
   if (args[0] === "commit") {
@@ -217,8 +247,11 @@ export async function run(
   const modelProgress = createProgressWriter(io);
 
   try {
+    const config = await loadConfig();
+
     return await runCommitWorkflow(commandOptions, io, {
       commitChanges,
+      config,
       createRuntime,
       cwd,
       generate,
