@@ -29,7 +29,12 @@ node bin/cli.mjs
 
 The first generation downloads the built-in model, verifies its SHA-256
 digest, and caches it outside the package. The current download is
-1,117,320,768 bytes (about 1.12 GB).
+1,117,320,768 bytes (about 1.12 GB). An ASCII progress bar shows the
+transferred bytes and percentage while it downloads.
+
+```text
+Downloading model [############------------]  50%  559 MB / 1.12 GB
+```
 
 Example output:
 
@@ -76,8 +81,10 @@ node bin/cli.mjs --clear-model
 
 The next generation downloads and verifies the model again.
 
-If no changes are staged, the command exits without downloading or loading the
-model.
+If no changes are staged in an interactive terminal, the command offers to
+stage all tracked and untracked changes and continue, or to cancel. Selecting
+cancel leaves the index untouched. In non-interactive use, the command exits
+without downloading or loading the model.
 
 ## Cache
 

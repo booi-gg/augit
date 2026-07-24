@@ -91,6 +91,10 @@ export async function collectStagedChanges({
   };
 }
 
+export async function stageAllChanges({ cwd = process.cwd() } = {}) {
+  await runGit(["add", "--all", "--"], { cwd });
+}
+
 export function parseNameStatus(value, { truncated = false } = {}) {
   const tokens = value.split("\0");
 
