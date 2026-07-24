@@ -263,6 +263,7 @@ test("generates a commit message with no arguments", async () => {
   assert.equal(status, 0);
   assert.equal(stdout, "feat(cli): generate staged commit messages\n");
   assert.match(stderr, /Collecting staged changes/);
+  assert.match(stderr, /Changes found/);
   assert.match(stderr, /Loading local model/);
   assert.match(stderr, /Generating commit message/);
 });
@@ -593,7 +594,7 @@ test("commit reports a clean tree after --all without loading the model", async 
   assert.equal(commitCalls, 0);
   assert.equal(disposed, 1);
   assert.match(stderr, /^\$ git add --all --/);
-  assert.match(stderr, /Nothing to commit; the working tree is clean/);
+  assert.match(stderr, /No staged changes found/);
 });
 
 test("generates again before committing the replacement message", async () => {
@@ -696,6 +697,10 @@ test("can stage all changes and retry generation", async () => {
 
       return "feat(cli): stage changes before generation";
     },
+    async hasChanges({ cwd }) {
+      assert.equal(cwd, "/worktree");
+      return true;
+    },
     async promptNoStagedChanges() {
       promptCalls += 1;
       return "stage";
@@ -711,6 +716,7 @@ test("can stage all changes and retry generation", async () => {
   assert.equal(promptCalls, 1);
   assert.equal(stageCalls, 1);
   assert.equal(stdout, "feat(cli): stage changes before generation\n");
+  assert.match(stderr, /Changes found/);
   assert.match(stderr, /Staging all changes/);
 });
 
@@ -729,6 +735,9 @@ test("can cancel without staging changes", async () => {
       error.code = "NO_STAGED_CHANGES";
       throw error;
     },
+    async hasChanges() {
+      return true;
+    },
     async promptNoStagedChanges() {
       return "cancel";
     },
@@ -740,7 +749,7 @@ test("can cancel without staging changes", async () => {
   assert.equal(status, 0);
   assert.equal(stageCalls, 0);
   assert.equal(stdout, "");
-  assert.equal(stderr, "Cancelled.\n");
+  assert.equal(stderr, "Changes found.\nCancelled.\n");
 });
 
 test("rejects unknown options", async () => {
@@ -771,7 +780,8 @@ test("rejects unknown commit options before the Git separator", async () => {
   assert.match(stderr, /gitkum commit --help/);
 });
 
-test("prints generation errors without a stack trace", async () => {
+test("aborts a clean tree without showing the staging menu", async () => {
+  let promptCalls = 0;
   let stderr = "";
   const io = {
     stdout: { write() {} },
@@ -784,8 +794,15 @@ test("prints generation errors without a stack trace", async () => {
       error.code = "NO_STAGED_CHANGES";
       throw error;
     },
+    async hasChanges() {
+      return false;
+    },
+    async promptNoStagedChanges() {
+      promptCalls += 1;
+    },
   });
 
   assert.equal(status, 1);
+  assert.equal(promptCalls, 0);
   assert.equal(stderr, "No staged changes found.\n");
 });

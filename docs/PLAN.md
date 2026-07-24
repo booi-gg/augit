@@ -41,8 +41,8 @@ load alternate GGUF files without exposing a user-facing model picker.
 - Match the `whatijustdid commit` wrapper with `--all`, `--yes`, and
   post-`--` Git argument passthrough while preserving a non-committing bare
   command for pipelines.
-- Color generated subjects and the selected menu action only on supported
-  terminals.
+- Color change statuses, generated subjects, and the selected menu action only
+  on supported terminals.
 - Target 50-character subjects, enforce a 72-character ceiling, and omit bodies
   unless they add concrete release-note-worthy context.
 - Print only the generated message when standard output is redirected.

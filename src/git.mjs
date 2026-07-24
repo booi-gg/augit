@@ -22,7 +22,7 @@ export class NotGitRepositoryError extends GitContextError {
 
 export class NoStagedChangesError extends GitContextError {
   constructor() {
-    super("No staged changes found. Stage files with git add and retry.", {
+    super("No staged changes found.", {
       code: "NO_STAGED_CHANGES",
     });
     this.name = "NoStagedChangesError";
@@ -93,6 +93,18 @@ export async function collectStagedChanges({
 
 export async function stageAllChanges({ cwd = process.cwd() } = {}) {
   await runGit(["add", "--all", "--"], { cwd });
+}
+
+export async function hasWorkingTreeChanges({ cwd = process.cwd() } = {}) {
+  const result = await runGit(
+    ["status", "--porcelain=v1", "-z", "--untracked-files=normal", "--"],
+    {
+      cwd,
+      maxStdoutBytes: 1,
+    },
+  );
+
+  return result.stdout.length > 0;
 }
 
 export async function commitStagedChanges({
