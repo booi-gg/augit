@@ -10,6 +10,25 @@ const cli = fileURLToPath(new URL("../bin/cli.mjs", import.meta.url));
 const packageJsonUrl = new URL("../package.json", import.meta.url);
 const { version } = JSON.parse(readFileSync(packageJsonUrl, "utf8"));
 
+function fixtureRuntimeInfo() {
+  return {
+    contextSize: 16_384,
+    maxTokens: 256,
+    cpu: {
+      model: "Fixture CPU",
+      logicalCores: 12,
+      mathCores: 8,
+      ramBytes: 32_000_000_000,
+    },
+    gpu: {
+      backend: "metal",
+      devices: ["Fixture GPU"],
+      memoryBytes: 20_000_000_000,
+      unifiedMemory: true,
+    },
+  };
+}
+
 test("prints help when requested", () => {
   const result = spawnSync(process.execPath, [cli, "--help"], {
     encoding: "utf8",
@@ -47,6 +66,7 @@ test("prints the package version", () => {
 
 test("shows information about the downloaded built-in model", async () => {
   let calls = 0;
+  let runtimeCalls = 0;
   let stdout = "";
   let stderr = "";
   const io = {
@@ -67,18 +87,32 @@ test("shows information about the downloaded built-in model", async () => {
         },
       };
     },
+    async inspectRuntime() {
+      runtimeCalls += 1;
+      return fixtureRuntimeInfo();
+    },
   });
 
   assert.equal(status, 0);
   assert.equal(calls, 1);
+  assert.equal(runtimeCalls, 1);
   assert.equal(stderr, "");
   assert.match(stdout, /^Built-in model\n/);
   assert.match(stdout, /Name: Qwen2\.5-Coder-1\.5B-Instruct Q4_K_M/);
+  assert.match(stdout, /Parameters: 1\.78B \(1,777,088,000\)/);
+  assert.match(stdout, /Quantization: Q4_K_M/);
+  assert.match(stdout, /Context: 32,768 tokens \(16,384 used by gitkum\)/);
+  assert.match(stdout, /Output limit: 256 tokens/);
   assert.match(stdout, /Status: downloaded and verified/);
   assert.match(stdout, /Path: \/cache\/built-in\.gguf/);
   assert.match(stdout, /Size: 1\.12 GB \(1,117,320,768 bytes\)/);
   assert.match(stdout, new RegExp(`SHA-256: ${BUILT_IN_MODEL.sha256}`));
   assert.match(stdout, /Source: https:\/\/huggingface\.co\//);
+  assert.match(
+    stdout,
+    /CPU: Fixture CPU \(8 math cores, 12 logical cores, 32\.0 GB RAM\)/,
+  );
+  assert.match(stdout, /GPU: Metal \(Fixture GPU, 20\.0 GB unified memory\)/);
 });
 
 test("reports when the built-in model has not been downloaded", async () => {
@@ -96,6 +130,9 @@ test("reports when the built-in model has not been downloaded", async () => {
         state: "missing",
         file: null,
       };
+    },
+    async inspectRuntime() {
+      return fixtureRuntimeInfo();
     },
   });
 
@@ -254,6 +291,61 @@ test("prints only the message when standard output is redirected", async () => {
   assert.equal(status, 0);
   assert.equal(stdout, "feat(cli): preserve command substitution\n");
   assert.equal(stderr, "");
+});
+
+test("prints aggregate token, CPU, and GPU usage to standard error", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: {
+      isTTY: false,
+      write: (value) => (stdout += value),
+    },
+    stderr: {
+      isTTY: true,
+      write: (value) => (stderr += value),
+    },
+  };
+
+  const status = await run([], io, {
+    createRuntime() {
+      return {
+        async dispose() {},
+        getUsage() {
+          return {
+            generations: 2,
+            tokens: {
+              input: 2_000,
+              output: 48,
+              total: 2_048,
+            },
+            wallTimeMs: 2_500,
+            cpu: {
+              model: "Fixture CPU",
+              timeMs: 350,
+              memoryBytes: 250_000_000,
+            },
+            gpu: {
+              backend: "metal",
+              devices: ["Fixture GPU"],
+              memoryBytes: 1_100_000_000,
+            },
+          };
+        },
+      };
+    },
+    async generate() {
+      return "feat(cli): report local inference usage";
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(stdout, "feat(cli): report local inference usage\n");
+  assert.match(stderr, /Tokens: 2,048 total \(2,000 input, 48 output\)/);
+  assert.match(stderr, /Wall time: 2\.50 s/);
+  assert.match(stderr, /CPU: Fixture CPU, 350 ms time, 250 MB allocated/);
+  assert.match(stderr, /GPU: Metal, Fixture GPU, 1\.10 GB allocated/);
 });
 
 test("commits the approved generated message", async () => {

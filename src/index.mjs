@@ -18,7 +18,12 @@ import {
   getBuiltInModelInfo,
   getBuiltInModelPath,
 } from "./model.mjs";
-import { createNodeLlamaRuntime } from "./runtime.mjs";
+import {
+  createNodeLlamaRuntime,
+  DEFAULT_CONTEXT_SIZE,
+  DEFAULT_MAX_TOKENS,
+  inspectNodeLlamaRuntime,
+} from "./runtime.mjs";
 
 const help = `gitkum
 
@@ -71,6 +76,7 @@ export {
 export { extractKeyConcepts, inferRequiredType } from "./classify.mjs";
 export {
   CommitCommandUsageError,
+  formatGenerationUsage,
   formatGitCommand,
   parseCommitCommandArgs,
   runCommitWorkflow,
@@ -85,7 +91,12 @@ export {
 } from "./git.mjs";
 export { generateCommit, generateCommitMessage } from "./generate.mjs";
 export { InvalidModelOutputError, normalizeCommitMessage } from "./output.mjs";
-export { createNodeLlamaRuntime } from "./runtime.mjs";
+export {
+  createNodeLlamaRuntime,
+  DEFAULT_CONTEXT_SIZE,
+  DEFAULT_MAX_TOKENS,
+  inspectNodeLlamaRuntime,
+} from "./runtime.mjs";
 export { sanitizeGitContext } from "./sanitize.mjs";
 
 export async function run(
@@ -99,6 +110,7 @@ export async function run(
     ensureModel = ensureBuiltInModel,
     generate = generateCommitMessage,
     getModelInfo = getBuiltInModelInfo,
+    inspectRuntime = inspectNodeLlamaRuntime,
     promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
     stageChanges = stageAllChanges,
@@ -113,9 +125,12 @@ export async function run(
 
   if (args.length === 1 && args[0] === "--model-info") {
     try {
-      const info = await getModelInfo();
+      const [info, runtime] = await Promise.all([
+        getModelInfo(),
+        inspectRuntime(),
+      ]);
 
-      io.stdout.write(formatModelInfo(info));
+      io.stdout.write(formatModelInfo(info, runtime));
       return 0;
     } catch (error) {
       io.stderr.write(`${error.message}\n`);
@@ -289,7 +304,7 @@ function formatBytes(bytes) {
   return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
 }
 
-function formatModelInfo({ file, model, path, state }) {
+function formatModelInfo({ file, model, path, state }, runtime) {
   const status = {
     invalid: "downloaded but failed verification",
     missing: "not downloaded",
@@ -299,6 +314,11 @@ function formatModelInfo({ file, model, path, state }) {
     "Built-in model",
     `  Name: ${model.name}`,
     `  ID: ${model.id}`,
+    `  Parameters: ${formatCompactCount(model.parameterCount)} (${model.parameterCount.toLocaleString("en-US")})`,
+    `  Quantization: ${model.quantization}`,
+    `  Vocabulary: ${model.vocabularySize.toLocaleString("en-US")} tokens`,
+    `  Context: ${model.contextSize.toLocaleString("en-US")} tokens (${runtime.contextSize.toLocaleString("en-US")} used by gitkum)`,
+    `  Output limit: ${runtime.maxTokens.toLocaleString("en-US")} tokens`,
     `  Status: ${status || state}`,
     `  Path: ${path}`,
     `  Size: ${formatBytes(model.byteLength)} (${model.byteLength.toLocaleString("en-US")} bytes)`,
@@ -311,6 +331,73 @@ function formatModelInfo({ file, model, path, state }) {
   }
 
   lines.push(`  SHA-256: ${model.sha256}`, `  Source: ${model.url}`);
+  lines.push(
+    "Runtime",
+    `  CPU: ${formatCpuInfo(runtime.cpu)}`,
+    `  GPU: ${formatGpuInfo(runtime.gpu)}`,
+  );
+
+  if (runtime.error) {
+    lines.push(
+      `  Probe: unavailable (${String(runtime.error).replace(/\s+/g, " ").trim()})`,
+    );
+  }
 
   return `${lines.join("\n")}\n`;
+}
+
+function formatCompactCount(value) {
+  if (value >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(2)}B`;
+  }
+
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(2)}M`;
+  }
+
+  return value.toLocaleString("en-US");
+}
+
+function formatCpuInfo(cpu = {}) {
+  const details = [];
+
+  if (Number.isFinite(cpu.mathCores)) {
+    details.push(`${cpu.mathCores} math cores`);
+  }
+
+  if (Number.isFinite(cpu.logicalCores)) {
+    details.push(`${cpu.logicalCores} logical cores`);
+  }
+
+  if (Number.isFinite(cpu.ramBytes)) {
+    details.push(`${formatBytes(cpu.ramBytes)} RAM`);
+  }
+
+  return `${cpu.model || process.arch}${details.length ? ` (${details.join(", ")})` : ""}`;
+}
+
+function formatGpuInfo(gpu = {}) {
+  if (gpu.backend === "cpu") {
+    return "not used (CPU backend)";
+  }
+
+  if (gpu.backend === "unavailable") {
+    return "unavailable";
+  }
+
+  const backend =
+    {
+      cuda: "CUDA",
+      metal: "Metal",
+      vulkan: "Vulkan",
+    }[gpu.backend] || gpu.backend;
+  const details = [...(gpu.devices || [])];
+
+  if (Number.isFinite(gpu.memoryBytes)) {
+    const memoryType = gpu.unifiedMemory ? "unified memory" : "memory";
+
+    details.push(`${formatBytes(gpu.memoryBytes)} ${memoryType}`);
+  }
+
+  return `${backend || "unknown"}${details.length ? ` (${details.join(", ")})` : ""}`;
 }
