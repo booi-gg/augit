@@ -85,7 +85,7 @@ export function formatChangesStatus(
   found,
   { color, output = process.stderr } = {},
 ) {
-  const message = found ? "Changes found." : "No staged changes found.";
+  const message = found ? "Found!" : "Not found!";
   const statusColor = found ? ANSI.lightBlue : ANSI.orange;
 
   return paint(message, [statusColor], color ?? supportsColor(output));

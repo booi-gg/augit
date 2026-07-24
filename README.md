@@ -140,11 +140,13 @@ node bin/cli.mjs --clear-model
 
 The next generation downloads and verifies the model again.
 
-If no changes are staged, the command checks the working tree. A clean tree
-prints `No staged changes found.` and exits without an action menu. If
-unstaged or untracked changes exist, it prints `Changes found.` and offers to
-stage them all or cancel. Pass `--all` to stage all changes explicitly before
-generation. In non-interactive use, `gitkum commit` also requires `--yes`.
+Each check is printed as it happens: `Checking staged changes...` followed by
+`Found!` or `Not found!`. If nothing is staged, it then checks the working
+tree: `Checking for all changes...` followed by `Found!` or `Not found!`. A
+clean working tree exits without an action menu. If unstaged or untracked
+changes exist, it offers to stage them all or cancel. Pass `--all` to stage
+all changes explicitly before generation. In non-interactive use, `gitkum
+commit` also requires `--yes`.
 
 After generation in an interactive terminal, the command shows the optional
 body and offers Commit, Generate again, and Cancel. Regeneration reuses the

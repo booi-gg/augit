@@ -163,7 +163,7 @@ export async function runCommitWorkflow(
 
         if (phase === "collecting") {
           if (!suppressStatusAnnouncements) {
-            io.stderr.write("Collecting staged changes...\n");
+            io.stderr.write("Checking staged changes...\n");
           }
         } else if (phase === "loading-model") {
           if (!suppressStatusAnnouncements) {
@@ -191,9 +191,15 @@ export async function runCommitWorkflow(
         throw error;
       }
 
-      const found = stageEverything ? false : await hasChanges({ cwd });
+      io.stderr.write(`${formatChangesStatus(false, { output: io.stderr })}\n`);
 
-      io.stderr.write(`${formatChangesStatus(found, { output: io.stderr })}\n`);
+      let found = false;
+
+      if (!stageEverything) {
+        io.stderr.write("Checking for all changes...\n");
+        found = await hasChanges({ cwd });
+        io.stderr.write(`${formatChangesStatus(found, { output: io.stderr })}\n`);
+      }
 
       if (!found) {
         return 1;

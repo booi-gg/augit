@@ -145,16 +145,13 @@ test("can render the review without ANSI color", async () => {
 test("formats staged-change statuses with terminal colors", () => {
   assert.equal(
     formatChangesStatus(true, { color: true }),
-    "\u001B[94mChanges found.\u001B[0m",
+    "\u001B[94mFound!\u001B[0m",
   );
   assert.equal(
     formatChangesStatus(false, { color: true }),
-    "\u001B[38;5;208mNo staged changes found.\u001B[0m",
+    "\u001B[38;5;208mNot found!\u001B[0m",
   );
-  assert.equal(
-    formatChangesStatus(false, { color: false }),
-    "No staged changes found.",
-  );
+  assert.equal(formatChangesStatus(false, { color: false }), "Not found!");
 });
 
 test("offers to stage detected unstaged changes", async () => {

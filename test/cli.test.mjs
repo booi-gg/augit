@@ -280,8 +280,8 @@ test("generates and commits a message with the commit command", async () => {
     stdout,
     "Generated commit message:\n\nfeat(cli): generate staged commit messages\n\n",
   );
-  assert.match(stderr, /Collecting staged changes/);
-  assert.match(stderr, /Changes found/);
+  assert.match(stderr, /Checking staged changes/);
+  assert.match(stderr, /Found!/);
   assert.match(stderr, /Loading local model/);
   assert.match(stderr, /Generating commit message/);
 });
@@ -641,7 +641,7 @@ test("commit reports a clean tree after --all without loading the model", async 
   assert.equal(commitCalls, 0);
   assert.equal(disposed, 1);
   assert.match(stderr, /^\$ git add --all --/);
-  assert.match(stderr, /No staged changes found/);
+  assert.match(stderr, /Not found!/);
 });
 
 test("generates again before committing the replacement message", async () => {
@@ -827,8 +827,10 @@ test("can stage all changes and retry generation", async () => {
   assert.equal(
     stderr,
     [
-      "Collecting staged changes...",
-      "Changes found.",
+      "Checking staged changes...",
+      "Not found!",
+      "Checking for all changes...",
+      "Found!",
       "$ git add --all --",
       "Loading local model...",
       "Generating commit message",
@@ -924,7 +926,10 @@ test("can cancel without staging changes", async () => {
   assert.equal(status, 0);
   assert.equal(stageCalls, 0);
   assert.equal(stdout, "");
-  assert.equal(stderr, "Changes found.\nCancelled; nothing was committed.\n");
+  assert.equal(
+    stderr,
+    "Not found!\nChecking for all changes...\nFound!\nCancelled; nothing was committed.\n",
+  );
 });
 
 test("rejects unknown options", async () => {
@@ -980,7 +985,10 @@ test("aborts a clean tree without showing the staging menu", async () => {
 
   assert.equal(status, 1);
   assert.equal(promptCalls, 0);
-  assert.equal(stderr, "No staged changes found.\n");
+  assert.equal(
+    stderr,
+    "Not found!\nChecking for all changes...\nNot found!\n",
+  );
 });
 
 test("dispatches gitkum config to the config command", async () => {
