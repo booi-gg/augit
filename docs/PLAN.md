@@ -38,6 +38,10 @@ load alternate GGUF files without exposing a user-facing model picker.
   as usable.
 - Review generated messages in an arrow-key menu before committing.
 - Offer commit, regenerate, and cancel actions in interactive terminals.
+- Color generated subjects and the selected menu action only on supported
+  terminals.
+- Target 50-character subjects, enforce a 72-character ceiling, and omit bodies
+  unless they add concrete release-note-worthy context.
 - Print only the generated message when standard output is redirected.
 
 ## Release gates

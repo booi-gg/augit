@@ -17,7 +17,8 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
 - `src/git.mjs` runs Git directly with `spawn`, collects only the index, caps
   buffered output, and stages or commits only after an explicit CLI choice.
 - `src/interactive.mjs` owns the terminal-only prompts for an empty index and
-  generated-message review.
+  generated-message review. It applies type, scope, and selection colors only
+  while writing to a color-capable TTY.
 - `src/sanitize.mjs` normalizes control characters, bounds every input class,
   and redacts common credential formats.
 - `src/prompt.mjs` serializes evidence as JSON and defines the grammar schema.
@@ -40,8 +41,11 @@ sanitizer runs before prompt construction, and the prompt identifies the
 serialized repository object as data rather than instructions.
 
 The model output is also untrusted. JSON grammar controls its shape, while the
-normalizer independently checks the type, scope, line count, subject length,
-body length, and final formatting.
+normalizer independently checks the type, scope, imperative subject, 72
+character subject ceiling, body length, and final formatting. The prompt
+targets 50-character subjects without truncating exact identifiers. The
+normalizer removes boilerplate bodies that only paraphrase the subject and
+wraps useful body lines at 72 characters.
 
 ## Model lifecycle
 

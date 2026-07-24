@@ -41,17 +41,25 @@ Example interactive output:
 ```text
 Generated commit message:
 
-feat(cli): generate commit messages from staged changes
+feat(cli): generate messages from staged changes
 
 ❯ Commit
   Generate again
   Cancel
 ```
 
-Use the up and down arrow keys to choose an action and press Enter. Commit
-writes the staged changes immediately with the complete generated message,
-including its body when one is useful. Generate again replaces the proposal,
-and Cancel leaves the staged changes untouched.
+Interactive terminals color the Conventional Commit type and scope, highlight
+the selected `❯` action, and keep unselected actions subdued. Set `NO_COLOR`
+to disable styling. Use the up and down arrow keys to choose an action and
+press Enter. Commit writes the staged changes immediately with the complete
+generated message. Generate again replaces the proposal, and Cancel leaves
+the staged changes untouched.
+
+Subjects use the Conventional Commits structure, target 50 characters, and
+have a hard 72-character ceiling so exact names are never truncated. Bodies
+are empty by default. A body is kept only when it adds concrete motivation,
+compatibility impact, migration guidance, or a short multi-item changelog that
+the subject cannot capture. Body lines are wrapped at 72 characters.
 
 When standard output is redirected, `gitkum` skips the menu and prints only
 the generated message. This keeps command substitution available:
@@ -160,8 +168,11 @@ inject a runtime implementing:
 - Common keys, tokens, passwords, private keys, and credential URLs are
   redacted.
 - Repository content is explicitly marked as untrusted prompt data.
-- Model output must satisfy the Conventional Commit contract and is retried
-  once when invalid.
+- Model output must satisfy the Conventional Commit contract, use an
+  imperative subject that targets 50 characters and never exceeds 72, and is
+  retried once when invalid.
+- Redundant bodies are removed, useful body lines are wrapped at 72
+  characters, and the complete body is capped at 400 characters.
 
 These controls reduce accidental exposure and prompt injection; they are not a
 general-purpose secret scanner.
