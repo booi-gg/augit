@@ -20,7 +20,7 @@
   "type": "module",
   "sideEffects": false,
   "bin": {
-    "gikum": "./bin/cli.mjs"
+    "gitkum": "./bin/cli.mjs"
   },
   "exports": {
     ".": "./src/index.mjs"

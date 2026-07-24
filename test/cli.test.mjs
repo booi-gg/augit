@@ -13,6 +13,8 @@ test("prints help when requested", () => {
   });
 
   assert.equal(result.status, 0);
+  assert.match(result.stdout, /^gitkum\n/);
+  assert.match(result.stdout, /gitkum \[options\]/);
   assert.match(result.stdout, /Generate concise Git commit messages/);
 });
 

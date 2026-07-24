@@ -7,12 +7,12 @@ import {
   getBuiltInModelPath,
 } from "./model.mjs";
 
-const help = `gikum
+const help = `gitkum
 
 Generate concise Git commit messages with a small local language model.
 
 Usage:
-  gikum [options]
+  gitkum [options]
 
 Options:
       --download-model  Download and verify the model for offline use
@@ -85,7 +85,7 @@ export async function run(
   if (args.length > 0) {
     io.stderr.write(
       `Unknown option: ${args.join(" ")}. ` +
-        "gikum does not expose model selection; run gikum --help.\n",
+        "gitkum does not expose model selection; run gitkum --help.\n",
     );
     return 2;
   }

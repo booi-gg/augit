@@ -39,7 +39,7 @@ export class ModelUnavailableOfflineError extends Error {
   constructor(path) {
     super(
       "The built-in model has not been downloaded yet. " +
-        `Connect to the internet and run gikum once (cache: ${path}).`,
+        `Connect to the internet and run gitkum once (cache: ${path}).`,
     );
     this.name = "ModelUnavailableOfflineError";
     this.code = "MODEL_UNAVAILABLE_OFFLINE";
@@ -181,7 +181,7 @@ async function acquireDownloadLock(
       assertOwned() {
         if (compromisedError) {
           throw new ModelDownloadError(
-            "The model download lock was lost. Run gikum again to retry.",
+            "The model download lock was lost. Run gitkum again to retry.",
             { cause: compromisedError },
           );
         }
@@ -339,7 +339,7 @@ async function downloadAndVerify(model, partialPath, fetchModel, onProgress) {
     }
 
     throw new ModelDownloadError(
-      "The built-in model download was interrupted. Run gikum again to retry.",
+      "The built-in model download was interrupted. Run gitkum again to retry.",
       { cause },
     );
   }
@@ -354,7 +354,7 @@ async function downloadAndVerify(model, partialPath, fetchModel, onProgress) {
 
   if (digest !== model.sha256) {
     throw new ModelDownloadError(
-      "The model download failed its integrity check. Run gikum again to retry.",
+      "The model download failed its integrity check. Run gitkum again to retry.",
     );
   }
 }
