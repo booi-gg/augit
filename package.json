@@ -1,5 +1,5 @@
 {
-  "name": "gikum",
+  "name": "gitkum",
   "version": "0.1.0",
   "description": "Generate concise Git commit messages with a small local language model.",
   "keywords": [
@@ -39,6 +39,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepack": "pnpm check",
+    "release:patch": "pnpm version patch && git push --follow-tags && pnpm publish",
+    "release:minor": "pnpm version minor && git push --follow-tags && pnpm publish",
+    "release:major": "pnpm version major && git push --follow-tags && pnpm publish",
     "smoke:runtime": "node scripts/smoke-runtime.mjs",
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=65 --test-coverage-functions=75"
