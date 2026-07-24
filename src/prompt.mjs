@@ -35,6 +35,7 @@ export function buildCommitPrompt(context, options = {}) {
 export function buildCommitPromptDetails(
   context,
   {
+    allowScope = true,
     keyConcepts = [],
     maxPromptBytes = MAX_PROMPT_BYTES,
     previousMessages = [],
@@ -60,7 +61,7 @@ export function buildCommitPromptDetails(
     },
   };
   const targetBytes = Math.max(0, maxPromptBytes - REPAIR_PROMPT_RESERVE_BYTES);
-  let prompt = renderPrompt(evidence);
+  let prompt = renderPrompt(evidence, { allowScope });
   let diffTruncated = false;
   let filesTruncated = false;
 
@@ -75,12 +76,12 @@ export function buildCommitPromptDetails(
       characters.length - 1,
       (candidate) => {
         evidence.stagedDiff = candidate;
-        return renderPrompt(evidence);
+        return renderPrompt(evidence, { allowScope });
       },
       targetBytes,
     );
     diffTruncated = true;
-    prompt = renderPrompt(evidence);
+    prompt = renderPrompt(evidence, { allowScope });
   }
 
   if (
@@ -95,12 +96,12 @@ export function buildCommitPromptDetails(
       files.length - 1,
       (candidate) => {
         evidence.stagedFiles = candidate;
-        return renderPrompt(evidence);
+        return renderPrompt(evidence, { allowScope });
       },
       targetBytes,
     );
     filesTruncated = true;
-    prompt = renderPrompt(evidence);
+    prompt = renderPrompt(evidence, { allowScope });
   }
 
   if (Buffer.byteLength(prompt) > targetBytes) {
@@ -119,7 +120,7 @@ export function buildCommitPromptDetails(
   };
 }
 
-function renderPrompt(evidence) {
+function renderPrompt(evidence, { allowScope = true } = {}) {
   return `Generate exactly one concise Conventional Commit message from the staged changes.
 
 Output one JSON object with exactly these string keys:
@@ -127,9 +128,9 @@ Output one JSON object with exactly these string keys:
 - "body": optional context, at most ${MAX_BODY_LENGTH} characters.
 
 Subject rules:
-- Format: <type>(optional-scope): <imperative description>
+- Format: ${allowScope ? "<type>(optional-scope): <imperative description>" : "<type>: <imperative description>"}
 - Aim to keep the complete subject at or below ${TARGET_SUBJECT_LENGTH}
-  characters, including its type and scope. Shorter is better.
+  characters, including its type${allowScope ? " and scope" : ""}. Shorter is better.
 - Use up to ${MAX_SUBJECT_LENGTH} characters only when needed to preserve
   important exact identifiers. Never truncate a name, flag, or version.
 - Allowed types: ${TYPES}
@@ -149,10 +150,16 @@ Subject rules:
   - chore for other maintenance.
 - Name the single most important change in the staged diff. Put every other
   change in the body instead of trying to fit it in the subject.
-- Do not repeat the scope in the description. For example, prefer
+${
+  allowScope
+    ? `- Do not repeat the scope in the description. For example, prefer
   "build(package): rename to @scope/name" over
   "build(package): update package name to @scope/name".
-- Name the changed behavior. Never use vague phrases like "update files",
+`
+    : `- Never include a scope in parentheses. Fold anything you would have put
+  in a scope into the description instead.
+`
+}- Name the changed behavior. Never use vague phrases like "update files",
   "improve output", "make changes", or only a filename.
 - Include the compact "keyConcepts" when they accurately describe the change.
   They were extracted from flags, test names, headings, and code structure.

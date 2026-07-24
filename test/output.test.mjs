@@ -130,6 +130,18 @@ test("normalizes path-like and redundant scopes", () => {
   );
 });
 
+test("drops the scope entirely when scopes are disabled", () => {
+  const result = normalizeCommitMessage(
+    {
+      subject: "fix(cli): handle missing profiles",
+      body: "",
+    },
+    { allowScope: false },
+  );
+
+  assert.equal(result.subject, "fix: handle missing profiles");
+});
+
 test("drops a boilerplate body that paraphrases the subject", () => {
   const result = normalizeCommitMessage({
     subject: "build(package): rename to @booi-gg/gitkum",

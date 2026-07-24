@@ -99,7 +99,10 @@ export class InvalidModelOutputError extends Error {
   }
 }
 
-export function normalizeCommitMessage(value, { requiredType } = {}) {
+export function normalizeCommitMessage(
+  value,
+  { allowScope = true, requiredType } = {},
+) {
   const output = parseOutput(value);
 
   if (typeof output.subject !== "string") {
@@ -110,7 +113,7 @@ export function normalizeCommitMessage(value, { requiredType } = {}) {
     throw new InvalidModelOutputError("body must be a string.");
   }
 
-  const subject = normalizeSubject(output.subject, { requiredType });
+  const subject = normalizeSubject(output.subject, { allowScope, requiredType });
   let body = normalizeBody(output.body || "");
 
   if (isRedundantBody(subject, body)) {
@@ -160,7 +163,7 @@ function parseOutput(value) {
   };
 }
 
-function normalizeSubject(value, { requiredType } = {}) {
+function normalizeSubject(value, { allowScope = true, requiredType } = {}) {
   if (/[\r\n]/.test(value)) {
     throw new InvalidModelOutputError("subject must be one line.");
   }
@@ -212,6 +215,10 @@ function normalizeSubject(value, { requiredType } = {}) {
     if (scope === type) {
       scope = "";
     }
+  }
+
+  if (!allowScope) {
+    scope = "";
   }
 
   const description = match.groups.description.trim().replace(/\.+$/, "");

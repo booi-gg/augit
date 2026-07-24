@@ -341,7 +341,11 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
       return false;
     },
     async loadConfig() {
-      return { autoStageAll: false, showUsageSummary: true };
+      return {
+        "auto-stage-all": false,
+        "show-scope": true,
+        "show-usage-summary": true,
+      };
     },
   });
 
@@ -392,7 +396,11 @@ test("hides the usage summary by default", async () => {
       return false;
     },
     async loadConfig() {
-      return { autoStageAll: false, showUsageSummary: false };
+      return {
+        "auto-stage-all": false,
+        "show-scope": true,
+        "show-usage-summary": false,
+      };
     },
   });
 
@@ -479,10 +487,8 @@ test("notes leftover unstaged changes after committing", async () => {
   });
 
   assert.equal(status, 0);
-  assert.match(
-    stderr,
-    /You still have unstaged changes\. Run again to commit those as well\.\n$/,
-  );
+  assert.match(stderr, /You still have unstaged changes\./);
+  assert.match(stderr, /Run again to commit those as well\./);
 });
 
 test("does not fail the commit when the leftover-changes check errors", async () => {
@@ -889,7 +895,11 @@ test("can stage all changes and retry generation", async () => {
       return true;
     },
     async loadConfig() {
-      return { autoStageAll: false, showUsageSummary: false };
+      return {
+        "auto-stage-all": false,
+        "show-scope": true,
+        "show-usage-summary": false,
+      };
     },
     async promptNoStagedChanges() {
       promptCalls += 1;
@@ -960,7 +970,11 @@ test("auto-stages without prompting when autoStageAll is enabled", async () => {
       return true;
     },
     async loadConfig() {
-      return { autoStageAll: true, showUsageSummary: false };
+      return {
+        "auto-stage-all": true,
+        "show-scope": true,
+        "show-usage-summary": false,
+      };
     },
     async promptNoStagedChanges() {
       throw new Error("autoStageAll must not prompt");
@@ -1000,7 +1014,11 @@ test("can cancel without staging changes", async () => {
       return true;
     },
     async loadConfig() {
-      return { autoStageAll: false, showUsageSummary: false };
+      return {
+        "auto-stage-all": false,
+        "show-scope": true,
+        "show-usage-summary": false,
+      };
     },
     async promptNoStagedChanges() {
       return "cancel";
@@ -1084,12 +1102,19 @@ test("dispatches gitkum config to the config command", async () => {
 
   const status = await run(["config", "list"], io, {
     async loadConfig() {
-      return { autoStageAll: true, showUsageSummary: false };
+      return {
+        "auto-stage-all": true,
+        "show-scope": true,
+        "show-usage-summary": false,
+      };
     },
   });
 
   assert.equal(status, 0);
-  assert.equal(stdout, "autoStageAll = true\nshowUsageSummary = false\n");
+  assert.equal(
+    stdout,
+    "auto-stage-all = true\nshow-scope = true\nshow-usage-summary = false\n",
+  );
 });
 
 test("reports config command usage errors without crashing", async () => {

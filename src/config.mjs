@@ -5,16 +5,21 @@ import { dirname, join } from "node:path";
 const CONFIG_FILENAME = "config.json";
 
 export const DEFAULT_CONFIG = Object.freeze({
-  autoStageAll: false,
-  showUsageSummary: false,
+  "auto-stage-all": false,
+  "show-scope": true,
+  "show-usage-summary": false,
 });
 
 const CONFIG_SCHEMA = Object.freeze({
-  autoStageAll: {
+  "auto-stage-all": {
     description:
       "Stage all changes automatically instead of prompting when gitkum commit finds none staged.",
   },
-  showUsageSummary: {
+  "show-scope": {
+    description:
+      'Include a scope in generated subjects, e.g. "fix(cli): ...". Disable for a bare "<type>: <description>" subject.',
+  },
+  "show-usage-summary": {
     description:
       "Print the local model's token, CPU, and GPU usage summary after generating a commit message.",
   },

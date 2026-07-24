@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 import {
   formatChangesStatus,
+  formatUnstagedNotice,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "../src/interactive.mjs";
@@ -152,6 +153,17 @@ test("formats staged-change statuses with terminal colors", () => {
     "\u001B[38;5;208mNot found!\u001B[0m",
   );
   assert.equal(formatChangesStatus(false, { color: false }), "Not found!");
+});
+
+test("formats the leftover-changes notice with a subtle blue", () => {
+  assert.equal(
+    formatUnstagedNotice({ color: true }),
+    "\u001B[94mYou still have unstaged changes. Run again to commit those as well.\u001B[0m",
+  );
+  assert.equal(
+    formatUnstagedNotice({ color: false }),
+    "You still have unstaged changes. Run again to commit those as well.",
+  );
 });
 
 test("offers to stage detected unstaged changes", async () => {

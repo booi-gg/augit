@@ -93,10 +93,7 @@ export function formatChangesStatus(
   return paint(message, codes, color ?? supportsColor(output));
 }
 
-export function formatUnstagedNotice({
-  color,
-  output = process.stderr,
-} = {}) {
+export function formatUnstagedNotice({ color, output = process.stderr } = {}) {
   const message =
     "You still have unstaged changes. Run again to commit those as well.";
 

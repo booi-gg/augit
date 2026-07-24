@@ -20,6 +20,24 @@ noProgress.end = () => {};
 
 const SPINNER_FRAMES = ["|", "/", "-", "\\"];
 const SPINNER_INTERVAL_MS = 100;
+const MAX_GENERATION_ATTEMPTS = 3;
+
+async function generateWithRetries(generate, generationOptions, io) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await generate(generationOptions);
+    } catch (error) {
+      if (
+        !(error instanceof InvalidModelOutputError) ||
+        attempt >= MAX_GENERATION_ATTEMPTS
+      ) {
+        throw error;
+      }
+
+      io.stderr.write(`${error.message} Retrying...\n`);
+    }
+  }
+}
 
 function createStatusSpinner(io) {
   const isInteractive = Boolean(io.stderr?.isTTY);
@@ -153,6 +171,7 @@ export async function runCommitWorkflow(
     runtimeForUsage = runtime;
 
     const generationOptions = {
+      allowScope: config["show-scope"],
       cwd,
       onModelProgress: modelProgress,
       onStatus({ phase }) {
@@ -185,7 +204,7 @@ export async function runCommitWorkflow(
     let previousMessages = [];
 
     try {
-      message = await generate(generationOptions);
+      message = await generateWithRetries(generate, generationOptions, io);
       generatedMessage = true;
     } catch (error) {
       if (error?.code !== "NO_STAGED_CHANGES") {
@@ -208,7 +227,7 @@ export async function runCommitWorkflow(
         return 1;
       }
 
-      const action = config.autoStageAll
+      const action = config["auto-stage-all"]
         ? "stage"
         : await promptNoStagedChanges({
             input: io.stdin,
@@ -239,7 +258,7 @@ export async function runCommitWorkflow(
       suppressStatusAnnouncements = true;
 
       try {
-        message = await generate(generationOptions);
+        message = await generateWithRetries(generate, generationOptions, io);
         generatedMessage = true;
       } catch (retryError) {
         if (retryError?.code !== "NO_STAGED_CHANGES") {
@@ -375,7 +394,7 @@ export async function runCommitWorkflow(
     try {
       await runtime?.dispose?.();
     } finally {
-      const summary = config.showUsageSummary
+      const summary = config["show-usage-summary"]
         ? formatGenerationUsage(usage)
         : "";
 

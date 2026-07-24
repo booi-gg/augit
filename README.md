@@ -60,7 +60,8 @@ Subjects use the Conventional Commits structure, target 50 characters, and
 have a hard 72-character ceiling so exact names are never truncated. The
 subject names the single most important staged change; every other change,
 however small, is listed as a "- " line in the body. Body lines are wrapped
-at 72 characters.
+at 72 characters. Scopes like `(cli)` are included by default; disable them
+with `gitkum config set show-scope false` (see [Configuration](#configuration)).
 
 Running `gitkum` with no arguments (or `-h`/`--help`) only prints usage; it
 never reads the working tree or loads the model. Use `gitkum commit` to draft
@@ -173,14 +174,15 @@ fingerprint changes.
 
 ## Configuration
 
-GitKum persists a small config file that toggles a couple of optional
-behaviors. Both default to off, so the CLI behaves exactly as described above
-until you opt in.
+GitKum persists a small config file that toggles a few optional behaviors.
+Each defaults to the behavior described above, so the CLI works as documented
+until you opt into a change.
 
-| Key                | Default | Effect when `true`                                                                  |
-| ------------------ | ------- | ----------------------------------------------------------------------------------- |
-| `autoStageAll`     | `false` | Skip the "Stage all changes and continue" prompt and stage everything automatically |
-| `showUsageSummary` | `false` | Print the "Generation usage" (tokens, wall time, CPU, GPU) summary after generating |
+| Key                  | Default | Effect                                                                                            |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `auto-stage-all`     | `false` | When `true`, skip the "Stage all changes and continue" prompt and stage everything automatically |
+| `show-scope`         | `true`  | When `false`, generate bare `<type>: <description>` subjects with no `(scope)`                   |
+| `show-usage-summary` | `false` | When `true`, print the "Generation usage" (tokens, wall time, CPU, GPU) summary after generating |
 
 Manage these with the `config` command:
 
@@ -189,11 +191,12 @@ Manage these with the `config` command:
 gitkum config list
 
 # Read a single key
-gitkum config get autoStageAll
+gitkum config get auto-stage-all
 
 # Turn a behavior on or off
-gitkum config set autoStageAll true
-gitkum config set showUsageSummary true
+gitkum config set auto-stage-all true
+gitkum config set show-scope false
+gitkum config set show-usage-summary true
 ```
 
 The config file lives alongside other GitKum state, at:

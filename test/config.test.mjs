@@ -65,14 +65,15 @@ test("merges a saved config over the defaults", async () => {
   const directory = await mkdtemp(join(tmpdir(), "gikum-config-test-"));
   const path = join(directory, "nested", "config.json");
 
-  await saveConfig({ autoStageAll: true }, { path });
+  await saveConfig({ "auto-stage-all": true }, { path });
 
   assert.deepEqual(await loadConfig({ path }), {
-    autoStageAll: true,
-    showUsageSummary: false,
+    "auto-stage-all": true,
+    "show-scope": true,
+    "show-usage-summary": false,
   });
   assert.deepEqual(JSON.parse(await readFile(path, "utf8")), {
-    autoStageAll: true,
+    "auto-stage-all": true,
   });
 });
 
@@ -90,20 +91,31 @@ test("config list prints every known key", async () => {
 
   const status = await runConfigCommand(["list"], io, {
     async load() {
-      return { autoStageAll: true, showUsageSummary: false };
+      return {
+        "auto-stage-all": true,
+        "show-scope": true,
+        "show-usage-summary": false,
+      };
     },
   });
 
   assert.equal(status, 0);
-  assert.equal(state.stdout, "autoStageAll = true\nshowUsageSummary = false\n");
+  assert.equal(
+    state.stdout,
+    "auto-stage-all = true\nshow-scope = true\nshow-usage-summary = false\n",
+  );
 });
 
 test("config get prints a single value", async () => {
   const { io, state } = fixtureIo();
 
-  const status = await runConfigCommand(["get", "showUsageSummary"], io, {
+  const status = await runConfigCommand(["get", "show-usage-summary"], io, {
     async load() {
-      return { autoStageAll: false, showUsageSummary: true };
+      return {
+        "auto-stage-all": false,
+        "show-scope": true,
+        "show-usage-summary": true,
+      };
     },
   });
 
@@ -115,18 +127,24 @@ test("config set persists a boolean value through the injected save", async () =
   const { io, state } = fixtureIo();
   const saved = [];
 
-  const status = await runConfigCommand(["set", "autoStageAll", "true"], io, {
-    async load() {
-      return { ...DEFAULT_CONFIG };
+  const status = await runConfigCommand(
+    ["set", "auto-stage-all", "true"],
+    io,
+    {
+      async load() {
+        return { ...DEFAULT_CONFIG };
+      },
+      async save(config) {
+        saved.push(config);
+      },
     },
-    async save(config) {
-      saved.push(config);
-    },
-  });
+  );
 
   assert.equal(status, 0);
-  assert.equal(state.stdout, "autoStageAll = true\n");
-  assert.deepEqual(saved, [{ autoStageAll: true, showUsageSummary: false }]);
+  assert.equal(state.stdout, "auto-stage-all = true\n");
+  assert.deepEqual(saved, [
+    { "auto-stage-all": true, "show-scope": true, "show-usage-summary": false },
+  ]);
 });
 
 test("config rejects an unknown key", async () => {
@@ -140,7 +158,7 @@ test("config rejects an unknown key", async () => {
 
 test("config rejects a non-boolean value", async () => {
   await assert.rejects(
-    runConfigCommand(["set", "autoStageAll", "sure"], fixtureIo().io, {
+    runConfigCommand(["set", "auto-stage-all", "sure"], fixtureIo().io, {
       async load() {
         return { ...DEFAULT_CONFIG };
       },
@@ -158,6 +176,7 @@ test("config prints help with no subcommand", async () => {
 
   assert.equal(status, 0);
   assert.match(state.stdout, /gitkum config/);
-  assert.match(state.stdout, /autoStageAll/);
-  assert.match(state.stdout, /showUsageSummary/);
+  assert.match(state.stdout, /auto-stage-all/);
+  assert.match(state.stdout, /show-scope/);
+  assert.match(state.stdout, /show-usage-summary/);
 });

@@ -9,6 +9,7 @@ import { sanitizeGitContext } from "./sanitize.mjs";
 const DIVERSIFY_TEMPERATURE = 0.8;
 
 export async function generateCommit({
+  allowScope = true,
   collector = collectStagedChanges,
   createRuntime = createNodeLlamaRuntime,
   cwd = process.cwd(),
@@ -39,6 +40,7 @@ export async function generateCommit({
     diffTruncated: promptDiffTruncated,
     filesTruncated: promptFilesTruncated,
   } = buildCommitPromptDetails(safeContext, {
+    allowScope,
     keyConcepts,
     previousMessages,
     requiredType,
@@ -65,7 +67,10 @@ export async function generateCommit({
       });
 
       try {
-        const normalized = normalizeCommitMessage(output, { requiredType });
+        const normalized = normalizeCommitMessage(output, {
+          allowScope,
+          requiredType,
+        });
 
         if (previousMessageSet.has(normalized.message)) {
           throw new InvalidModelOutputError(
