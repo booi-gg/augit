@@ -1,5 +1,5 @@
 {
-  "name": "gitkum",
+  "name": "@booi-gg/gitkum",
   "version": "0.1.3",
   "description": "Generate concise Git commit messages with a small local language model.",
   "keywords": [
@@ -19,6 +19,9 @@
   "homepage": "https://github.com/booi-gg/gitkum#readme",
   "type": "module",
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "gitkum": "./bin/cli.mjs"
   },
