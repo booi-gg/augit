@@ -758,7 +758,7 @@ test("cancels without committing the generated message", async () => {
   assert.equal(status, 0);
   assert.equal(commitCalls, 0);
   assert.equal(stdout, "");
-  assert.equal(stderr, "Cancelled.\n");
+  assert.equal(stderr, "\n- ABORT -\n");
 });
 
 test("can stage all changes and retry generation", async () => {

@@ -221,8 +221,8 @@ export async function runCommitWorkflow(
       if (action === "cancel") {
         io.stderr.write(
           requireCommit
-            ? "Cancelled; nothing was committed.\n"
-            : "Cancelled.\n",
+            ? "\n- ABORT -; nothing was committed.\n"
+            : "\n- ABORT -\n",
         );
         return 0;
       }
