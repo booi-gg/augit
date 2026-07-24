@@ -42,6 +42,17 @@ test("prints help when requested", () => {
   assert.match(result.stdout, /--model-info/);
 });
 
+test("prints help with no arguments instead of generating a commit", () => {
+  const result = spawnSync(process.execPath, [cli], {
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^gitkum\n/);
+  assert.match(result.stdout, /gitkum \[options\]/);
+  assert.match(result.stdout, /Generate concise Git commit messages/);
+});
+
 test("prints help for the commit wrapper", () => {
   const result = spawnSync(process.execPath, [cli, "commit", "--help"], {
     encoding: "utf8",
@@ -243,15 +254,19 @@ test("reports when the built-in model cache is already clear", async () => {
   assert.equal(stdout, "Built-in model is not cached: /cache/built-in.gguf\n");
 });
 
-test("generates a commit message with no arguments", async () => {
+test("generates and commits a message with the commit command", async () => {
   let stdout = "";
   let stderr = "";
   const io = {
+    stdin: {},
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
     async generate({ onStatus }) {
       onStatus({ phase: "collecting" });
       onStatus({ phase: "loading-model" });
@@ -261,37 +276,14 @@ test("generates a commit message with no arguments", async () => {
   });
 
   assert.equal(status, 0);
-  assert.equal(stdout, "feat(cli): generate staged commit messages\n");
+  assert.equal(
+    stdout,
+    "Generated commit message:\n\nfeat(cli): generate staged commit messages\n\n",
+  );
   assert.match(stderr, /Collecting staged changes/);
   assert.match(stderr, /Changes found/);
   assert.match(stderr, /Loading local model/);
   assert.match(stderr, /Generating commit message/);
-});
-
-test("prints only the message when standard output is redirected", async () => {
-  let stdout = "";
-  let stderr = "";
-  const io = {
-    stdin: { isTTY: true },
-    stdout: {
-      isTTY: false,
-      write: (value) => (stdout += value),
-    },
-    stderr: {
-      isTTY: true,
-      write: (value) => (stderr += value),
-    },
-  };
-
-  const status = await run([], io, {
-    async generate() {
-      return "feat(cli): preserve command substitution";
-    },
-  });
-
-  assert.equal(status, 0);
-  assert.equal(stdout, "feat(cli): preserve command substitution\n");
-  assert.equal(stderr, "");
 });
 
 test("prints aggregate token, CPU, and GPU usage to standard error", async () => {
@@ -309,7 +301,10 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
     },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
     createRuntime() {
       return {
         async dispose() {},
@@ -345,7 +340,10 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
   });
 
   assert.equal(status, 0);
-  assert.equal(stdout, "feat(cli): report local inference usage\n");
+  assert.equal(
+    stdout,
+    "Generated commit message:\n\nfeat(cli): report local inference usage\n\n",
+  );
   assert.match(stderr, /Tokens: 2,048 total \(2,000 input, 48 output\)/);
   assert.match(stderr, /Wall time: 2\.50 s/);
   assert.match(stderr, /CPU: Fixture CPU, 350 ms time, 250 MB allocated/);
@@ -367,7 +365,10 @@ test("hides the usage summary by default", async () => {
     },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
     createRuntime() {
       return {
         async dispose() {},
@@ -387,7 +388,10 @@ test("hides the usage summary by default", async () => {
   });
 
   assert.equal(status, 0);
-  assert.equal(stdout, "feat(cli): default to a quiet usage summary\n");
+  assert.equal(
+    stdout,
+    "Generated commit message:\n\nfeat(cli): default to a quiet usage summary\n\n",
+  );
   assert.doesNotMatch(stderr, /Generation usage/);
 });
 
@@ -399,12 +403,12 @@ test("commits the approved generated message", async () => {
   let stdout = "";
   let stderr = "";
   const io = {
-    stdin: {},
-    stdout: { write: (value) => (stdout += value) },
-    stderr: { write: (value) => (stderr += value) },
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write: (value) => (stdout += value) },
+    stderr: { isTTY: true, write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit"], io, {
     cwd: "/worktree",
     async commitChanges(options) {
       calls.push(["commit", options]);
@@ -426,6 +430,7 @@ test("commits the approved generated message", async () => {
   assert.equal(status, 0);
   assert.equal(calls[1][1], message);
   assert.deepEqual(calls[2][1], {
+    args: [],
     cwd: "/worktree",
     message,
   });
@@ -433,7 +438,7 @@ test("commits the approved generated message", async () => {
     stdout,
     "[branch abc1234] feat(cli): review generated commits\n",
   );
-  assert.equal(stderr, "");
+  assert.match(stderr, /^\$ git commit --message/);
 });
 
 test("commit command reviews and commits the generated message", async () => {
@@ -651,12 +656,12 @@ test("generates again before committing the replacement message", async () => {
   let disposed = 0;
   let generateCalls = 0;
   const io = {
-    stdin: {},
-    stdout: { write() {} },
-    stderr: { write() {} },
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write() {} },
+    stderr: { isTTY: true, write() {} },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit"], io, {
     async commitChanges({ message }) {
       committed.push(message);
       return { stdout: "", stderr: "" };
@@ -694,16 +699,17 @@ test("keeps the previous message when regeneration keeps repeating it", async ()
   let generateCalls = 0;
 
   const io = {
-    stdin: {},
-    stdout: { write() {} },
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write() {} },
     stderr: {
+      isTTY: true,
       write(text) {
         stderrLines.push(text);
       },
     },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit"], io, {
     async commitChanges({ message }) {
       committed.push(message);
       return { stdout: "", stderr: "" };
@@ -738,12 +744,12 @@ test("cancels without committing the generated message", async () => {
   let stdout = "";
   let stderr = "";
   const io = {
-    stdin: {},
-    stdout: { write: (value) => (stdout += value) },
-    stderr: { write: (value) => (stderr += value) },
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write: (value) => (stdout += value) },
+    stderr: { isTTY: true, write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit"], io, {
     async commitChanges() {
       commitCalls += 1;
     },
@@ -758,7 +764,7 @@ test("cancels without committing the generated message", async () => {
   assert.equal(status, 0);
   assert.equal(commitCalls, 0);
   assert.equal(stdout, "");
-  assert.equal(stderr, "\n- ABORT -\n");
+  assert.equal(stderr, "\n- ABORT -; nothing was committed.\n");
 });
 
 test("can stage all changes and retry generation", async () => {
@@ -768,12 +774,16 @@ test("can stage all changes and retry generation", async () => {
   let stdout = "";
   let stderr = "";
   const io = {
+    stdin: {},
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
     cwd: "/worktree",
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
     async generate({ onStatus }) {
       generateCalls += 1;
       onStatus({ phase: "collecting" });
@@ -783,6 +793,9 @@ test("can stage all changes and retry generation", async () => {
         error.code = "NO_STAGED_CHANGES";
         throw error;
       }
+
+      onStatus({ phase: "loading-model" });
+      onStatus({ phase: "generating", attempt: 1 });
 
       return "feat(cli): stage changes before generation";
     },
@@ -807,9 +820,22 @@ test("can stage all changes and retry generation", async () => {
   assert.equal(generateCalls, 2);
   assert.equal(promptCalls, 1);
   assert.equal(stageCalls, 1);
-  assert.equal(stdout, "feat(cli): stage changes before generation\n");
-  assert.match(stderr, /Changes found/);
-  assert.match(stderr, /Staging all changes/);
+  assert.equal(
+    stdout,
+    "Generated commit message:\n\nfeat(cli): stage changes before generation\n\n",
+  );
+  assert.equal(
+    stderr,
+    [
+      "Collecting staged changes...",
+      "Changes found.",
+      "$ git add --all --",
+      "Loading local model...",
+      "Generating commit message...",
+      "$ git commit --message 'feat(cli): stage changes before generation' --",
+      "",
+    ].join("\n"),
+  );
 });
 
 test("auto-stages without prompting when autoStageAll is enabled", async () => {
@@ -818,12 +844,16 @@ test("auto-stages without prompting when autoStageAll is enabled", async () => {
   let stdout = "";
   let stderr = "";
   const io = {
+    stdin: {},
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
     cwd: "/worktree",
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
     async generate({ onStatus }) {
       generateCalls += 1;
       onStatus({ phase: "collecting" });
@@ -855,7 +885,10 @@ test("auto-stages without prompting when autoStageAll is enabled", async () => {
   assert.equal(status, 0);
   assert.equal(generateCalls, 2);
   assert.equal(stageCalls, 1);
-  assert.equal(stdout, "feat(cli): auto-stage before generation\n");
+  assert.equal(
+    stdout,
+    "Generated commit message:\n\nfeat(cli): auto-stage before generation\n\n",
+  );
 });
 
 test("can cancel without staging changes", async () => {
@@ -863,11 +896,12 @@ test("can cancel without staging changes", async () => {
   let stdout = "";
   let stderr = "";
   const io = {
+    stdin: {},
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
     async generate() {
       const error = new Error("No staged changes found.");
       error.code = "NO_STAGED_CHANGES";
@@ -890,7 +924,7 @@ test("can cancel without staging changes", async () => {
   assert.equal(status, 0);
   assert.equal(stageCalls, 0);
   assert.equal(stdout, "");
-  assert.equal(stderr, "Changes found.\nCancelled.\n");
+  assert.equal(stderr, "Changes found.\nCancelled; nothing was committed.\n");
 });
 
 test("rejects unknown options", async () => {
@@ -925,11 +959,12 @@ test("aborts a clean tree without showing the staging menu", async () => {
   let promptCalls = 0;
   let stderr = "";
   const io = {
+    stdin: {},
     stdout: { write() {} },
     stderr: { write: (value) => (stderr += value) },
   };
 
-  const status = await run([], io, {
+  const status = await run(["commit", "--yes"], io, {
     async generate() {
       const error = new Error("No staged changes found.");
       error.code = "NO_STAGED_CHANGES";

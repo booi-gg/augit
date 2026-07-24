@@ -48,8 +48,9 @@ feat(cli): generate messages from staged changes
   Cancel
 ```
 
-Before exit, GitKum reports the cumulative local-inference usage for every
-proposal and validation retry:
+Enable `showUsageSummary` (see [Configuration](#configuration); off by
+default) to have GitKum report the cumulative local-inference usage for every
+proposal and validation retry before exit:
 
 ```text
 Generation usage
@@ -59,12 +60,11 @@ Generation usage
   GPU: Metal, Apple M4 Pro, 1.17 GB allocated
 ```
 
-The summary is written to standard error, so redirected standard output and
-command substitution continue to contain only the commit message. CPU is
-reported as process CPU time, while CPU/GPU memory is the peak native
-allocation observed across generation attempts. The GPU line names the backend
-and device actually selected by `node-llama-cpp`; CPU-only runs say that the GPU
-was not used.
+The summary is written to standard error, keeping standard output free for
+the commit message and menu. CPU is reported as process CPU time, while
+CPU/GPU memory is the peak native allocation observed across generation
+attempts. The GPU line names the backend and device actually selected by
+`node-llama-cpp`; CPU-only runs say that the GPU was not used.
 
 Interactive terminals color the Conventional Commit type and scope, highlight
 the selected `❯` action, and keep unselected actions subdued. Set `NO_COLOR`
@@ -80,13 +80,9 @@ are empty by default. A body is kept only when it adds concrete motivation,
 compatibility impact, migration guidance, or a short multi-item changelog that
 the subject cannot capture. Body lines are wrapped at 72 characters.
 
-The bare `gitkum` command remains a generation shortcut. When standard output
-is redirected, it skips the menu and prints only the generated message. This
-keeps command substitution available:
-
-```sh
-git commit -m "$(node bin/cli.mjs)"
-```
+Running `gitkum` with no arguments (or `-h`/`--help`) only prints usage; it
+never reads the working tree or loads the model. Use `gitkum commit` to draft
+and review a message.
 
 A small local model can still misinterpret an unusual or very large change, so
 review the proposal before selecting Commit.
@@ -171,8 +167,8 @@ generation. In non-interactive use, `gitkum commit` also requires `--yes`.
 After generation in an interactive terminal, the command shows the optional
 body and offers Commit, Generate again, and Cancel. Regeneration reuses the
 loaded local model and excludes the last three proposals from subsequent
-answers. In non-interactive use, bare `gitkum` prints the generated message
-without creating a commit; `gitkum commit --yes` creates the commit.
+answers. In non-interactive use, `gitkum commit --yes` accepts the first
+generated message and creates the commit.
 
 ## Cache
 

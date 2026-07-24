@@ -55,8 +55,7 @@ Options:
 
 Run gitkum commit --help for staging, automation, and Git passthrough options.
 Run gitkum config --help for the list of configurable keys.
-For compatibility, running without a command generates and reviews a message.
-In non-interactive use, the bare command prints the message without committing.
+Running gitkum with no arguments prints this help.
 The built-in model is selected automatically; model selection is not exposed.
 `;
 
@@ -195,7 +194,10 @@ export async function run(
     }
   }
 
-  if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
+  if (
+    args.length === 0 ||
+    (args.length === 1 && (args[0] === "--help" || args[0] === "-h"))
+  ) {
     io.stdout.write(help);
     return 0;
   }
@@ -234,8 +236,6 @@ export async function run(
       io.stdout.write(commitHelp);
       return 0;
     }
-  } else if (args.length === 0) {
-    commandOptions = {};
   } else {
     io.stderr.write(
       `Unknown option: ${args.join(" ")}. ` +

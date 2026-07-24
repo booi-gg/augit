@@ -99,6 +99,7 @@ export async function runCommitWorkflow(
   let runtime;
   let runtimeForUsage;
   let generatedMessage = false;
+  let suppressStatusAnnouncements = false;
 
   try {
     runtime = await createRuntime();
@@ -115,11 +116,16 @@ export async function runCommitWorkflow(
         lastPhase = phase;
 
         if (phase === "collecting") {
-          io.stderr.write("Collecting staged changes...\n");
+          if (!suppressStatusAnnouncements) {
+            io.stderr.write("Collecting staged changes...\n");
+          }
         } else if (phase === "loading-model") {
-          io.stderr.write(
-            `${formatChangesStatus(true, { output: io.stderr })}\n`,
-          );
+          if (!suppressStatusAnnouncements) {
+            io.stderr.write(
+              `${formatChangesStatus(true, { output: io.stderr })}\n`,
+            );
+          }
+
           io.stderr.write("Loading local model...\n");
         } else if (phase === "generating") {
           modelProgress.end?.();
@@ -175,6 +181,7 @@ export async function runCommitWorkflow(
       );
       await stageChanges({ cwd });
       lastPhase = undefined;
+      suppressStatusAnnouncements = true;
 
       try {
         message = await generate(generationOptions);
@@ -188,6 +195,8 @@ export async function runCommitWorkflow(
           `${formatChangesStatus(false, { output: io.stderr })}\n`,
         );
         return 1;
+      } finally {
+        suppressStatusAnnouncements = false;
       }
     }
 
