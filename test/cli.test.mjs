@@ -4,7 +4,11 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { BUILT_IN_MODEL, run } from "../src/index.mjs";
+import {
+  BUILT_IN_MODEL,
+  InvalidModelOutputError,
+  run,
+} from "../src/index.mjs";
 
 const cli = fileURLToPath(new URL("../bin/cli.mjs", import.meta.url));
 const packageJsonUrl = new URL("../package.json", import.meta.url);
@@ -642,6 +646,53 @@ test("generates again before committing the replacement message", async () => {
   assert.deepEqual(previousMessageSets, [undefined, [messages[0]]]);
   assert.equal(runtimes[0], runtimes[1]);
   assert.equal(disposed, 1);
+});
+
+test("keeps the previous message when regeneration keeps repeating it", async () => {
+  const originalMessage = "feat(cli): add generated commit menu";
+  const actions = ["regenerate", "commit"];
+  const committed = [];
+  const stderrLines = [];
+  let generateCalls = 0;
+
+  const io = {
+    stdin: {},
+    stdout: { write() {} },
+    stderr: {
+      write(text) {
+        stderrLines.push(text);
+      },
+    },
+  };
+
+  const status = await run([], io, {
+    async commitChanges({ message }) {
+      committed.push(message);
+      return { stdout: "", stderr: "" };
+    },
+    createRuntime() {
+      return { async dispose() {} };
+    },
+    async generate() {
+      generateCalls += 1;
+
+      if (generateCalls === 1) {
+        return originalMessage;
+      }
+
+      throw new InvalidModelOutputError("message repeats a previous proposal.");
+    },
+    async promptGeneratedCommit() {
+      return actions.shift();
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.equal(generateCalls, 2);
+  assert.deepEqual(committed, [originalMessage]);
+  assert.ok(
+    stderrLines.some((line) => /repeats a previous proposal/i.test(line)),
+  );
 });
 
 test("cancels without committing the generated message", async () => {

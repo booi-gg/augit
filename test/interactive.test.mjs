@@ -30,14 +30,16 @@ test("shows the generated message and defaults to committing", async () => {
   assert.equal(await answer, "commit");
   const plainDisplay = stripAnsi(displayed);
 
-  assert.match(plainDisplay, /Generated commit message/);
+  assert.doesNotMatch(plainDisplay, /Generated commit message/);
   assert.match(plainDisplay, /feat\(cli\): review generated commits/);
   assert.match(plainDisplay, /Let developers approve/);
   assert.match(plainDisplay, /❯ Commit/);
   assert.match(plainDisplay, /Generate again/);
   assert.match(plainDisplay, /Cancel/);
-  assert.match(displayed, /\u001B\[1;32mfeat\u001B\[0m/);
-  assert.match(displayed, /\u001B\[36m\(cli\)\u001B\[0m/);
+  assert.match(
+    displayed,
+    /\u001B\[1;32mfeat\(cli\): review generated commits\u001B\[0m/,
+  );
   assert.match(displayed, /\u001B\[1;32m❯\u001B\[0m/);
   assert.deepEqual(input.rawModeChanges, [true, false]);
   assert.equal(input.isPaused(), true);
@@ -170,7 +172,7 @@ test("offers to stage detected unstaged changes", async () => {
 
   assert.equal(await answer, "stage");
   const plainDisplay = stripAnsi(displayed);
-  assert.match(plainDisplay, /up and down arrow keys/i);
+  assert.match(plainDisplay, /\[UP\] and \[DOWN\] arrow keys/i);
   assert.match(plainDisplay, /❯ Stage all changes and continue/);
   assert.match(plainDisplay, /Cancel/);
   assert.doesNotMatch(plainDisplay, /No staged changes found/);

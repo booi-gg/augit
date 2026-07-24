@@ -9,6 +9,7 @@ import {
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "./interactive.mjs";
+import { InvalidModelOutputError } from "./output.mjs";
 import { createNodeLlamaRuntime } from "./runtime.mjs";
 
 const noProgress = () => {};
@@ -224,11 +225,23 @@ export async function runCommitWorkflow(
 
       if (action === "regenerate") {
         previousMessages = [...previousMessages, message].slice(-3);
-        message = await generate({
-          ...generationOptions,
-          previousMessages,
-        });
-        generatedMessage = true;
+
+        try {
+          message = await generate({
+            ...generationOptions,
+            previousMessages,
+          });
+          generatedMessage = true;
+        } catch (error) {
+          if (!(error instanceof InvalidModelOutputError)) {
+            throw error;
+          }
+
+          io.stderr.write(
+            `${error.message} Keeping the previous message.\n`,
+          );
+        }
+
         continue;
       }
 

@@ -153,6 +153,107 @@ test("loads the model lazily and uses JSON grammar for inference", async () => {
   });
 });
 
+test("forwards a non-zero temperature and seed for diversified sampling", async () => {
+  const calls = [];
+  const grammar = { parse: (value) => JSON.parse(value) };
+  const sequence = { tokenMeter: { getState: () => undefined } };
+  const context = {
+    getSequence: () => sequence,
+    async dispose() {},
+  };
+  const model = {
+    async createContext() {
+      return context;
+    },
+    async dispose() {},
+  };
+  const llama = {
+    async loadModel() {
+      return model;
+    },
+    async createGrammarForJsonSchema() {
+      return grammar;
+    },
+    async dispose() {},
+  };
+
+  class FakeSession {
+    async prompt(prompt, options) {
+      calls.push(options);
+      return '{"subject":"feat: vary sampling","body":""}';
+    }
+
+    dispose() {}
+  }
+
+  const runtime = createNodeLlamaRuntime({
+    loadModule: async () => ({
+      getLlama: async () => llama,
+      LlamaChatSession: FakeSession,
+    }),
+  });
+
+  await runtime.generate({
+    modelPath: "/cache/model.gguf",
+    prompt: "Generate a different message.",
+    seed: 42,
+    temperature: 0.8,
+  });
+
+  assert.equal(calls[0].temperature, 0.8);
+  assert.equal(calls[0].seed, 42);
+});
+
+test("ignores a seed when temperature stays at zero", async () => {
+  const calls = [];
+  const grammar = { parse: (value) => JSON.parse(value) };
+  const sequence = { tokenMeter: { getState: () => undefined } };
+  const context = {
+    getSequence: () => sequence,
+    async dispose() {},
+  };
+  const model = {
+    async createContext() {
+      return context;
+    },
+    async dispose() {},
+  };
+  const llama = {
+    async loadModel() {
+      return model;
+    },
+    async createGrammarForJsonSchema() {
+      return grammar;
+    },
+    async dispose() {},
+  };
+
+  class FakeSession {
+    async prompt(prompt, options) {
+      calls.push(options);
+      return '{"subject":"feat: run locally","body":""}';
+    }
+
+    dispose() {}
+  }
+
+  const runtime = createNodeLlamaRuntime({
+    loadModule: async () => ({
+      getLlama: async () => llama,
+      LlamaChatSession: FakeSession,
+    }),
+  });
+
+  await runtime.generate({
+    modelPath: "/cache/model.gguf",
+    prompt: "Generate one message.",
+    seed: 42,
+  });
+
+  assert.equal(calls[0].temperature, 0);
+  assert.equal(calls[0].seed, undefined);
+});
+
 test("inspects CPU, GPU, and token limits without loading model weights", async () => {
   const calls = [];
   const llama = {

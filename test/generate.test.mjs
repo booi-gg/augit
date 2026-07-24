@@ -122,6 +122,58 @@ test("regeneration rejects and repairs a repeated proposal", async () => {
   assert.match(prompts[1], /repeats a previous proposal/i);
 });
 
+test("uses deterministic sampling for a fresh generation", async () => {
+  const calls = [];
+  const runtime = {
+    async generate(options) {
+      calls.push(options);
+      return { subject: "feat: run locally", body: "" };
+    },
+  };
+
+  await generateCommit({
+    collector: async () => fixtureContext(),
+    ensureModel: async () => ({ path: "/cache/model.gguf" }),
+    runtime,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].temperature, 0);
+  assert.equal(calls[0].seed, undefined);
+});
+
+test("diversifies sampling when regenerating or repairing", async () => {
+  const previousMessage = "feat(cli): review generated commits";
+  const calls = [];
+  const runtime = {
+    async generate(options) {
+      calls.push(options);
+
+      if (calls.length === 1) {
+        return { subject: previousMessage, body: "" };
+      }
+
+      return { subject: "feat(cli): confirm generated commits", body: "" };
+    },
+  };
+
+  await generateCommit({
+    collector: async () => fixtureContext(),
+    ensureModel: async () => ({ path: "/cache/model.gguf" }),
+    previousMessages: [previousMessage],
+    runtime,
+  });
+
+  assert.equal(calls.length, 2);
+
+  for (const call of calls) {
+    assert.equal(call.temperature, 0.8);
+    assert.equal(typeof call.seed, "number");
+  }
+
+  assert.notEqual(calls[0].seed, calls[1].seed);
+});
+
 test("disposes a runtime that it creates", async () => {
   let disposed = 0;
   const message = await generateCommitMessage({

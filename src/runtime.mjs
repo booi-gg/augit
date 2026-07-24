@@ -115,7 +115,7 @@ class NodeLlamaRuntime {
     };
   }
 
-  async generate({ modelPath, prompt, signal } = {}) {
+  async generate({ modelPath, prompt, seed, signal, temperature = 0 } = {}) {
     if (this.disposed) {
       throw new ModelRuntimeError("The local model runtime is disposed.");
     }
@@ -152,7 +152,8 @@ class NodeLlamaRuntime {
         grammar,
         maxTokens: this.maxTokens,
         signal,
-        temperature: 0,
+        temperature,
+        ...(temperature > 0 && seed !== undefined ? { seed } : {}),
       });
 
       return grammar.parse(response);

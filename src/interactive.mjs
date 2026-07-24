@@ -74,8 +74,7 @@ export async function promptForGeneratedCommit({
     initialSelection: 0,
     input,
     introduction:
-      `${paint("Generated commit message:", [ANSI.bold], useColor)}\n\n` +
-      `${formatCommitMessage(message, { color: useColor })}\n\n` +
+      `\n${formatCommitMessage(message, { color: useColor })}\n\n` +
       "Use the [UP] and [DOWN] arrow keys to select, then press [ENTER].\n",
     output,
     useColor,
@@ -247,12 +246,7 @@ function formatCommitMessage(message, { color }) {
   if (match) {
     const typeColor = TYPE_COLORS[match.groups.type] || ANSI.gray;
 
-    formattedSubject =
-      paint(match.groups.type, [ANSI.bold, typeColor], color) +
-      paint(match.groups.scope || "", [ANSI.cyan], color) +
-      paint(match.groups.breaking || "", [ANSI.bold, ANSI.red], color) +
-      paint(match.groups.separator, [ANSI.dim], color) +
-      paint(match.groups.description, [ANSI.bold], color);
+    formattedSubject = paint(subject, [ANSI.bold, typeColor], color);
   }
 
   if (bodyLines.length === 0) {

@@ -6,6 +6,8 @@ import { buildCommitPromptDetails, buildRepairPrompt } from "./prompt.mjs";
 import { createNodeLlamaRuntime } from "./runtime.mjs";
 import { sanitizeGitContext } from "./sanitize.mjs";
 
+const DIVERSIFY_TEMPERATURE = 0.8;
+
 export async function generateCommit({
   collector = collectStagedChanges,
   createRuntime = createNodeLlamaRuntime,
@@ -51,11 +53,15 @@ export async function generateCommit({
     let prompt = basePrompt;
 
     for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const diversify = attempt > 1 || previousMessageSet.size > 0;
+
       onStatus({ phase: "generating", attempt });
       const output = await activeRuntime.generate({
         modelPath: model.path,
         prompt,
+        ...(diversify ? { seed: randomSeed() } : {}),
         signal,
+        temperature: diversify ? DIVERSIFY_TEMPERATURE : 0,
       });
 
       try {
@@ -100,4 +106,8 @@ export async function generateCommit({
 
 export async function generateCommitMessage(options = {}) {
   return (await generateCommit(options)).message;
+}
+
+function randomSeed() {
+  return Math.floor(Math.random() * 2 ** 31);
 }
