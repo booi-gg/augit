@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import { promptForNoStagedChanges } from "../src/interactive.mjs";
 
-test("offers to stage all changes in an interactive terminal", async () => {
+test("selects stage with the up arrow and Enter", async () => {
   const input = createTtyStream();
   const output = createTtyStream();
   let displayed = "";
@@ -15,28 +15,46 @@ test("offers to stage all changes in an interactive terminal", async () => {
 
   const answer = promptForNoStagedChanges({ input, output });
 
-  input.end("1\n");
+  input.end("\u001B[A\r");
 
   assert.equal(await answer, "stage");
+  assert.match(displayed, /up and down arrow keys/);
   assert.match(displayed, /Stage all changes and continue/);
   assert.match(displayed, /Cancel/);
+  assert.deepEqual(input.rawModeChanges, [true, false]);
 });
 
-test("defaults to cancelling and retries invalid answers", async () => {
+test("defaults to cancelling when Enter is pressed", async () => {
   const input = createTtyStream();
   const output = createTtyStream();
-  let displayed = "";
-
-  output.on("data", (chunk) => {
-    displayed += chunk;
-  });
 
   const answer = promptForNoStagedChanges({ input, output });
 
-  input.end("not-an-option\n\n");
+  input.end("\r");
 
   assert.equal(await answer, "cancel");
-  assert.match(displayed, /Please enter 1 to stage or 2 to cancel/);
+});
+
+test("moves down from stage to cancel", async () => {
+  const input = createTtyStream();
+  const output = createTtyStream();
+
+  const answer = promptForNoStagedChanges({ input, output });
+
+  input.end("\u001B[A\u001B[B\r");
+
+  assert.equal(await answer, "cancel");
+});
+
+test("cancels when the input stream ends without a selection", async () => {
+  const input = createTtyStream();
+  const output = createTtyStream();
+
+  const answer = promptForNoStagedChanges({ input, output });
+
+  input.end();
+
+  assert.equal(await answer, "cancel");
 });
 
 test("does not prompt when input is non-interactive", async () => {
@@ -56,5 +74,12 @@ function createTtyStream() {
   const stream = new PassThrough();
 
   stream.isTTY = true;
+  stream.isRaw = false;
+  stream.rawModeChanges = [];
+  stream.setRawMode = (isRaw) => {
+    stream.isRaw = isRaw;
+    stream.rawModeChanges.push(isRaw);
+  };
+
   return stream;
 }

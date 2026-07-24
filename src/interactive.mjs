@@ -1,4 +1,15 @@
-import { createInterface } from "node:readline";
+import { emitKeypressEvents } from "node:readline";
+
+const choices = [
+  {
+    label: "Stage all changes and continue",
+    value: "stage",
+  },
+  {
+    label: "Cancel",
+    value: "cancel",
+  },
+];
 
 export async function promptForNoStagedChanges({
   input = process.stdin,
@@ -8,39 +19,84 @@ export async function promptForNoStagedChanges({
     return null;
   }
 
-  const readline = createInterface({ input, crlfDelay: Infinity });
+  let selectedIndex = choices.length - 1;
+  const wasPaused = input.isPaused?.() ?? true;
+  const wasRaw = Boolean(input.isRaw);
+
+  emitKeypressEvents(input);
 
   output.write(
-    [
-      "No staged changes found.",
-      "  1) Stage all changes and continue",
-      "  2) Cancel",
-      "Select an option [1-2] (default: 2): ",
-    ].join("\n"),
+    "No staged changes found.\n" +
+      "Use the up and down arrow keys to select, then press Enter.\n",
   );
+  renderChoices(output, selectedIndex);
 
-  try {
-    for await (const line of readline) {
-      const answer = line.trim().toLowerCase();
-
-      if (answer === "1" || answer === "s" || answer === "stage") {
-        return "stage";
+  return new Promise((resolve, reject) => {
+    const finish = (value) => {
+      cleanup();
+      resolve(value);
+    };
+    const onEnd = () => finish("cancel");
+    const onError = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const onKeypress = (_character, key = {}) => {
+      if ((key.ctrl && key.name === "c") || key.name === "escape") {
+        finish("cancel");
+        return;
       }
 
-      if (
-        answer === "" ||
-        answer === "2" ||
-        answer === "c" ||
-        answer === "cancel"
-      ) {
-        return "cancel";
+      if (key.name === "return" || key.name === "enter") {
+        finish(choices[selectedIndex].value);
+        return;
       }
 
-      output.write("Please enter 1 to stage or 2 to cancel: ");
+      const previousIndex = selectedIndex;
+
+      if (key.name === "up") {
+        selectedIndex = Math.max(0, selectedIndex - 1);
+      } else if (key.name === "down") {
+        selectedIndex = Math.min(choices.length - 1, selectedIndex + 1);
+      }
+
+      if (selectedIndex !== previousIndex) {
+        renderChoices(output, selectedIndex, { redraw: true });
+      }
+    };
+    const cleanup = () => {
+      input.off("keypress", onKeypress);
+      input.off("end", onEnd);
+      input.off("error", onError);
+
+      if (!wasRaw && typeof input.setRawMode === "function") {
+        input.setRawMode(false);
+      }
+
+      if (wasPaused) {
+        input.pause?.();
+      }
+    };
+
+    input.on("keypress", onKeypress);
+    input.once("end", onEnd);
+    input.once("error", onError);
+
+    if (!wasRaw && typeof input.setRawMode === "function") {
+      input.setRawMode(true);
     }
 
-    return "cancel";
-  } finally {
-    readline.close();
+    input.resume?.();
+  });
+}
+
+function renderChoices(output, selectedIndex, { redraw = false } = {}) {
+  if (redraw) {
+    output.write(`\u001B[${choices.length}A`);
   }
+
+  choices.forEach(({ label }, index) => {
+    const marker = index === selectedIndex ? "❯" : " ";
+    output.write(`\r\u001B[2K${marker} ${label}\n`);
+  });
 }
