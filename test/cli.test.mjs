@@ -289,6 +289,35 @@ test("generates and commits a message with the commit command", async () => {
   assert.match(stderr, /Generating commit message/);
 });
 
+test("colors the generating spinner to match the commit message accent", async () => {
+  let stdout = "";
+  let stderr = "";
+  const io = {
+    stdin: { isTTY: true },
+    stdout: { isTTY: true, write: (value) => (stdout += value) },
+    stderr: { isTTY: true, write: (value) => (stderr += value) },
+  };
+
+  const status = await run(["commit", "--yes"], io, {
+    async commitChanges() {
+      return { stdout: "", stderr: "" };
+    },
+    async generate({ onStatus }) {
+      onStatus({ phase: "collecting" });
+      onStatus({ phase: "loading-model" });
+      onStatus({ phase: "generating" });
+      return "feat(cli): generate staged commit messages";
+    },
+    async hasChanges() {
+      return false;
+    },
+  });
+
+  assert.equal(status, 0);
+  assert.match(stderr, /\[1;38;5;120m. Generating commit message\[0m/);
+  assert.doesNotMatch(stderr, /\[1;38;5;120m. Loading local model\.\.\.\[0m/);
+});
+
 test("prints aggregate token, CPU, and GPU usage to standard error", async () => {
   let stdout = "";
   let stderr = "";

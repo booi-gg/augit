@@ -6,6 +6,7 @@ import {
   stageAllChanges,
 } from "./git.mjs";
 import {
+  formatAccentText,
   formatChangesStatus,
   formatUnstagedNotice,
   promptForGeneratedCommit,
@@ -43,11 +44,14 @@ function createStatusSpinner(io) {
   const isInteractive = Boolean(io.stderr?.isTTY);
   let timer;
   let label = "";
+  let accent = false;
   let frameIndex = 0;
 
   function render() {
+    const line = `${SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length]} ${label}`;
+
     io.stderr.write(
-      `\r${SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length]} ${label}`,
+      `\r${accent ? formatAccentText(line, { output: io.stderr }) : line}`,
     );
     frameIndex += 1;
   }
@@ -63,11 +67,14 @@ function createStatusSpinner(io) {
   }
 
   return {
-    start(text) {
+    start(text, { accent: useAccent = false } = {}) {
       stop();
+      accent = useAccent;
 
       if (!isInteractive) {
-        io.stderr.write(`${text}\n`);
+        io.stderr.write(
+          `${useAccent ? formatAccentText(text, { output: io.stderr }) : text}\n`,
+        );
         return;
       }
 
@@ -195,7 +202,7 @@ export async function runCommitWorkflow(
           spinner.start("Loading local model...");
         } else if (phase === "generating") {
           modelProgress.end?.();
-          spinner.start("Generating commit message");
+          spinner.start("Generating commit message", { accent: true });
         }
       },
       runtime,
