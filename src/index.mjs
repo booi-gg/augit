@@ -34,13 +34,13 @@ import {
   inspectNodeLlamaRuntime,
 } from "./runtime.mjs";
 
-const help = `gitkum
+const help = `augi
 
 Generate concise Git commit messages with a small local language model.
 
 Usage:
-  gitkum [options]
-  gitkum commit [options] [-- GIT_ARGS...]
+  augi [options]
+  augi commit [options] [-- GIT_ARGS...]
 
 Commands:
   commit                Draft, review, and commit staged changes
@@ -53,18 +53,18 @@ Options:
   -h, --help            Show help
   -v, --version         Show version
 
-Run gitkum commit --help for staging, automation, and Git passthrough options.
-Run gitkum config --help for the list of configurable keys.
-Running gitkum with no arguments prints this help.
+Run augi commit --help for staging, automation, and Git passthrough options.
+Run augi config --help for the list of configurable keys.
+Running augi with no arguments prints this help.
 The built-in model is selected automatically; model selection is not exposed.
 `;
 
-const commitHelp = `gitkum commit
+const commitHelp = `augi commit
 
 Draft a Conventional Commit message from staged changes, review it, and commit.
 
 Usage:
-  gitkum commit [options] [-- GIT_ARGS...]
+  augi commit [options] [-- GIT_ARGS...]
 
 Options:
   -a, --all             Stage all changes with git add --all
@@ -72,8 +72,8 @@ Options:
   -h, --help            Show commit command help
 
 Arguments after -- are forwarded to git commit:
-  gitkum commit -- --no-verify
-  gitkum commit --all --yes -- --signoff
+  augi commit -- --no-verify
+  augi commit --all --yes -- --signoff
 `;
 
 export {
@@ -239,7 +239,7 @@ export async function run(
   } else {
     io.stderr.write(
       `Unknown option: ${args.join(" ")}. ` +
-        "gitkum does not expose model selection; run gitkum --help.\n",
+        "augi does not expose model selection; run augi --help.\n",
     );
     return 2;
   }
@@ -357,7 +357,7 @@ function formatModelInfo({ file, model, path, state }, runtime) {
     `  Parameters: ${formatCompactCount(model.parameterCount)} (${model.parameterCount.toLocaleString("en-US")})`,
     `  Quantization: ${model.quantization}`,
     `  Vocabulary: ${model.vocabularySize.toLocaleString("en-US")} tokens`,
-    `  Context: ${model.contextSize.toLocaleString("en-US")} tokens (${runtime.contextSize.toLocaleString("en-US")} used by gitkum)`,
+    `  Context: ${model.contextSize.toLocaleString("en-US")} tokens (${runtime.contextSize.toLocaleString("en-US")} used by augi)`,
     `  Output limit: ${runtime.maxTokens.toLocaleString("en-US")} tokens`,
     `  Status: ${status || state}`,
     `  Path: ${path}`,

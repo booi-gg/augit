@@ -35,7 +35,7 @@ function fixtureModel(contents) {
 test("uses the platform cache directory", () => {
   assert.equal(
     getCacheDirectory({ env: {}, home: "/Users/test", platform: "darwin" }),
-    "/Users/test/Library/Caches/gikum",
+    "/Users/test/Library/Caches/augi",
   );
   assert.equal(
     getCacheDirectory({
@@ -43,7 +43,7 @@ test("uses the platform cache directory", () => {
       home: "/home/test",
       platform: "linux",
     }),
-    "/var/cache/test/gikum",
+    "/var/cache/test/augi",
   );
   assert.equal(
     getCacheDirectory({
@@ -51,12 +51,12 @@ test("uses the platform cache directory", () => {
       home: "C:\\Users\\test",
       platform: "win32",
     }),
-    join("C:\\Users\\test\\AppData\\Local", "gikum"),
+    join("C:\\Users\\test\\AppData\\Local", "augi"),
   );
 });
 
 test("downloads, verifies, and reuses a cached model", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const contents = Buffer.from("tiny verified model");
   const model = fixtureModel(contents);
@@ -86,7 +86,7 @@ test("downloads, verifies, and reuses a cached model", async () => {
 });
 
 test("inspects missing, verified, and invalid model caches", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const contents = Buffer.from("tiny verified model");
   const model = fixtureModel(contents);
@@ -117,7 +117,7 @@ test("inspects missing, verified, and invalid model caches", async () => {
 });
 
 test("clears the cached model and its download artifacts", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
 
   await mkdir(join(directory, "models"), { recursive: true });
@@ -134,7 +134,7 @@ test("clears the cached model and its download artifacts", async () => {
 });
 
 test("rejects a model that fails its integrity check", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const expected = Buffer.from("expected");
   const model = fixtureModel(expected);
@@ -153,7 +153,7 @@ test("rejects a model that fails its integrity check", async () => {
 });
 
 test("explains when an uncached model is unavailable offline", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const model = fixtureModel(Buffer.from("fixture"));
 
@@ -166,7 +166,7 @@ test("explains when an uncached model is unavailable offline", async () => {
 });
 
 test("does not trust verification metadata after the model file changes", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const contents = Buffer.from("valid");
   const model = fixtureModel(contents);
@@ -184,7 +184,7 @@ test("does not trust verification metadata after the model file changes", async 
 });
 
 test("recovers an abandoned legacy lock instead of waiting forever", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const contents = Buffer.from("fixture");
   const model = fixtureModel(contents);
@@ -205,7 +205,7 @@ test("recovers an abandoned legacy lock instead of waiting forever", async () =>
 });
 
 test("coordinates concurrent downloads of the same model", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const contents = Buffer.from("fixture");
   const model = fixtureModel(contents);
@@ -226,7 +226,7 @@ test("coordinates concurrent downloads of the same model", async () => {
 });
 
 test("waits for an active download before clearing its model", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-test-"));
   const path = join(directory, "models", "fixture.gguf");
   const contents = Buffer.from("fixture");
   const model = fixtureModel(contents);

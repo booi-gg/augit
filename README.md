@@ -1,9 +1,9 @@
-# gitkum
+# augi
 
 Generate one concise Conventional Commit message from staged changes with a
 small local language model.
 
-`gitkum` sends no source code to a hosted inference service. It collects the
+`augi` sends no source code to a hosted inference service. It collects the
 staged Git diff, removes common credential patterns, bounds the prompt, runs a
 curated GGUF model locally, and lets you commit, generate another message, or
 cancel from an interactive review menu.
@@ -61,10 +61,10 @@ have a hard 72-character ceiling so exact names are never truncated. The
 subject names the single most important staged change; every other change,
 however small, is listed as a "- " line in the body. Body lines are wrapped
 at 72 characters. Scopes like `(cli)` are included by default; disable them
-with `gitkum config set show-scope false` (see [Configuration](#configuration)).
+with `augi config set show-scope false` (see [Configuration](#configuration)).
 
-Running `gitkum` with no arguments (or `-h`/`--help`) only prints usage; it
-never reads the working tree or loads the model. Use `gitkum commit` to draft
+Running `augi` with no arguments (or `-h`/`--help`) only prints usage; it
+never reads the working tree or loads the model. Use `augi commit` to draft
 and review a message.
 
 A small local model can still misinterpret an unusual or very large change, so
@@ -73,8 +73,8 @@ review the proposal before selecting Commit.
 ## CLI
 
 ```text
-gitkum [options]
-gitkum commit [options] [-- GIT_ARGS...]
+augi [options]
+augi commit [options] [-- GIT_ARGS...]
 
   commit                Draft, review, and commit staged changes
   config                Get or set persisted configuration
@@ -91,27 +91,27 @@ replacements.
 
 ### Commit wrapper
 
-`gitkum commit` follows the staged-change workflow from `whatijustdid commit`
-while keeping GitKum's local model, secret redaction, bounded prompts, strict
+`augi commit` follows the staged-change workflow from `whatijustdid commit`
+while keeping Augi's local model, secret redaction, bounded prompts, strict
 message validation, and regeneration history.
 
 ```sh
 # Review staged changes, then commit, regenerate, or cancel
-gitkum commit
+augi commit
 
 # Stage tracked, modified, deleted, and untracked files first
-gitkum commit --all
+augi commit --all
 
 # Accept the first valid generated message without an interactive prompt
-gitkum commit --yes
+augi commit --yes
 
 # Forward flags to git commit after the separator
-gitkum commit -- --no-verify
-gitkum commit --all --yes -- --signoff
+augi commit -- --no-verify
+augi commit --all --yes -- --signoff
 ```
 
 The short forms are `-a` and `-y`. The wrapper prints each mutating Git command
-before it runs. Arguments before `--` belong to GitKum; arguments after `--`
+before it runs. Arguments before `--` belong to Augi; arguments after `--`
 are passed directly to `git commit`. Non-interactive callers must pass
 `--yes`, so a pipeline cannot accidentally wait for a review prompt.
 
@@ -146,35 +146,35 @@ Each check is printed as it happens: `Checking staged changes...` followed by
 tree: `Checking for all changes...` followed by `Found!` or `Not found!`. A
 clean working tree exits without an action menu. If unstaged or untracked
 changes exist, it offers to stage them all or cancel. Pass `--all` to stage
-all changes explicitly before generation. In non-interactive use, `gitkum
+all changes explicitly before generation. In non-interactive use, `augi
 commit` also requires `--yes`.
 
 After generation in an interactive terminal, the command shows the optional
 body and offers Commit, Generate again, and Cancel. Regeneration reuses the
 loaded local model and excludes the last three proposals from subsequent
-answers. In non-interactive use, `gitkum commit --yes` accepts the first
+answers. In non-interactive use, `augi commit --yes` accepts the first
 generated message and creates the commit.
 
-`gitkum` only ever generates from what was staged at the start of the run. If
+`augi` only ever generates from what was staged at the start of the run. If
 the working tree still has unstaged or untracked changes after a successful
-commit, it prints a reminder to run `gitkum commit` again for those.
+commit, it prints a reminder to run `augi commit` again for those.
 
 ## Cache
 
 The verified model is stored at:
 
-- macOS: `~/Library/Caches/gikum/models/`
-- Linux: `${XDG_CACHE_HOME:-~/.cache}/gikum/models/`
-- Windows: `%LOCALAPPDATA%\gikum\models\`
+- macOS: `~/Library/Caches/augi/models/`
+- Linux: `${XDG_CACHE_HOME:-~/.cache}/augi/models/`
+- Windows: `%LOCALAPPDATA%\augi\models\`
 
-Set `GIKUM_CACHE_DIR` to override the cache root. Downloads use an atomic,
+Set `AUGI_CACHE_DIR` to override the cache root. Downloads use an atomic,
 heartbeat-backed lock, a temporary `.part` file, size verification, and
 SHA-256 verification. A cached file is rehashed whenever its filesystem
 fingerprint changes.
 
 ## Configuration
 
-GitKum persists a small config file that toggles a few optional behaviors.
+Augi persists a small config file that toggles a few optional behaviors.
 Each defaults to the behavior described above, so the CLI works as documented
 until you opt into a change.
 
@@ -188,30 +188,30 @@ Manage these with the `config` command:
 
 ```sh
 # Show every key and its current value
-gitkum config list
+augi config list
 
 # Read a single key
-gitkum config get auto-stage-all
+augi config get auto-stage-all
 
 # Turn a behavior on or off
-gitkum config set auto-stage-all true
-gitkum config set show-scope false
-gitkum config set show-usage-summary true
+augi config set auto-stage-all true
+augi config set show-scope false
+augi config set show-usage-summary true
 ```
 
-The config file lives alongside other GitKum state, at:
+The config file lives alongside other Augi state, at:
 
-- macOS: `~/Library/Preferences/gikum/config.json`
-- Linux: `${XDG_CONFIG_HOME:-~/.config}/gikum/config.json`
-- Windows: `%APPDATA%\gikum\config.json`
+- macOS: `~/Library/Preferences/augi/config.json`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/augi/config.json`
+- Windows: `%APPDATA%\augi\config.json`
 
-Set `GIKUM_CONFIG_DIR` to override the config directory. You can also edit
+Set `AUGI_CONFIG_DIR` to override the config directory. You can also edit
 `config.json` directly; unset or unknown keys fall back to their defaults.
 
 ## Library
 
 ```js
-import { generateCommit, generateCommitMessage } from "gikum";
+import { generateCommit, generateCommitMessage } from "augi";
 
 const message = await generateCommitMessage({ cwd: "/path/to/repository" });
 
@@ -283,7 +283,7 @@ See [the architecture](docs/ARCHITECTURE.md),
 ## Model
 
 The built-in baseline is Qwen2.5-Coder-1.5B-Instruct GGUF Q4_K_M: 1,777,088,000
-parameters with a 32,768-token model context. GitKum uses a bounded
+parameters with a 32,768-token model context. Augi uses a bounded
 16,384-token runtime context and generates at most 256 output tokens per
 attempt. The model is loaded through `node-llama-cpp`. Weights are pinned to an
 immutable upstream revision and are not included in the npm package. See

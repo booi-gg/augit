@@ -1,7 +1,7 @@
 # Benchmarks
 
 The benchmark suite measures whether a candidate local model is suitable for
-the fixed product interface. It does not expose model selection in `gitkum`.
+the fixed product interface. It does not expose model selection in `augi`.
 
 ## Dataset
 

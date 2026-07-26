@@ -1,5 +1,5 @@
 {
-  "name": "@booi-gg/gitkum",
+  "name": "augi",
   "version": "0.1.8",
   "description": "Generate concise Git commit messages with a small local language model.",
   "keywords": [
@@ -13,17 +13,17 @@
   "author": "Booi <booimangang@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/booi-gg/gitkum.git"
+    "url": "git+https://github.com/booi-gg/augi.git"
   },
-  "bugs": "https://github.com/booi-gg/gitkum/issues",
-  "homepage": "https://github.com/booi-gg/gitkum#readme",
+  "bugs": "https://github.com/booi-gg/augi/issues",
+  "homepage": "https://github.com/booi-gg/augi#readme",
   "type": "module",
   "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "gitkum": "./bin/cli.mjs"
+    "augi": "./bin/cli.mjs"
   },
   "exports": {
     ".": "./src/index.mjs"

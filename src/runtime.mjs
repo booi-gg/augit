@@ -6,7 +6,7 @@ import { COMMIT_OUTPUT_SCHEMA } from "./prompt.mjs";
 export const DEFAULT_CONTEXT_SIZE = 16 * 1024;
 export const DEFAULT_MAX_TOKENS = 256;
 const SYSTEM_PROMPT =
-  "You are gitkum, a local tool that writes accurate Conventional Commit messages from staged Git evidence.";
+  "You are augi, a local tool that writes accurate Conventional Commit messages from staged Git evidence.";
 
 export class ModelRuntimeError extends Error {
   constructor(message, options) {
@@ -167,7 +167,7 @@ class NodeLlamaRuntime {
       }
 
       throw new ModelRuntimeError(
-        "Local model inference failed. Retry or run gitkum --download-model to verify the cache.",
+        "Local model inference failed. Retry or run augi --download-model to verify the cache.",
         { cause },
       );
     } finally {

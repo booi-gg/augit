@@ -43,7 +43,7 @@ export class ModelUnavailableOfflineError extends Error {
   constructor(path) {
     super(
       "The built-in model has not been downloaded yet. " +
-        `Connect to the internet and run gitkum once (cache: ${path}).`,
+        `Connect to the internet and run augi once (cache: ${path}).`,
     );
     this.name = "ModelUnavailableOfflineError";
     this.code = "MODEL_UNAVAILABLE_OFFLINE";
@@ -63,19 +63,19 @@ export function getCacheDirectory({
   home = homedir(),
   platform = process.platform,
 } = {}) {
-  if (env.GIKUM_CACHE_DIR) {
-    return env.GIKUM_CACHE_DIR;
+  if (env.AUGI_CACHE_DIR) {
+    return env.AUGI_CACHE_DIR;
   }
 
   if (platform === "darwin") {
-    return join(home, "Library", "Caches", "gikum");
+    return join(home, "Library", "Caches", "augi");
   }
 
   if (platform === "win32") {
-    return join(env.LOCALAPPDATA || join(home, "AppData", "Local"), "gikum");
+    return join(env.LOCALAPPDATA || join(home, "AppData", "Local"), "augi");
   }
 
-  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "gikum");
+  return join(env.XDG_CACHE_HOME || join(home, ".cache"), "augi");
 }
 
 export function getBuiltInModelPath(options = {}) {
@@ -255,7 +255,7 @@ async function acquireDownloadLock(
       assertOwned() {
         if (compromisedError) {
           throw new ModelDownloadError(
-            "The model download lock was lost. Run gitkum again to retry.",
+            "The model download lock was lost. Run augi again to retry.",
             { cause: compromisedError },
           );
         }
@@ -426,7 +426,7 @@ async function downloadAndVerify(model, partialPath, fetchModel, onProgress) {
     }
 
     throw new ModelDownloadError(
-      "The built-in model download was interrupted. Run gitkum again to retry.",
+      "The built-in model download was interrupted. Run augi again to retry.",
       { cause },
     );
   }
@@ -441,7 +441,7 @@ async function downloadAndVerify(model, partialPath, fetchModel, onProgress) {
 
   if (digest !== model.sha256) {
     throw new ModelDownloadError(
-      "The model download failed its integrity check. Run gitkum again to retry.",
+      "The model download failed its integrity check. Run augi again to retry.",
     );
   }
 }

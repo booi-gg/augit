@@ -117,7 +117,7 @@ export function parseCommitCommandArgs(args = []) {
       help = true;
     } else {
       throw new CommitCommandUsageError(
-        `Unknown commit option: ${arg}. Run gitkum commit --help.`,
+        `Unknown commit option: ${arg}. Run augi commit --help.`,
       );
     }
   }
@@ -157,7 +157,7 @@ export async function runCommitWorkflow(
 
   if (requireCommit && !autoConfirm && !supportsInteractiveReview(io)) {
     throw new Error(
-      "gitkum commit needs an interactive terminal; pass --yes to accept the first generated message automatically.",
+      "augi commit needs an interactive terminal; pass --yes to accept the first generated message automatically.",
     );
   }
 
@@ -301,7 +301,7 @@ export async function runCommitWorkflow(
       if (action === null) {
         if (requireCommit) {
           throw new Error(
-            "gitkum commit needs an interactive terminal; pass --yes to accept the first generated message automatically.",
+            "augi commit needs an interactive terminal; pass --yes to accept the first generated message automatically.",
           );
         }
 

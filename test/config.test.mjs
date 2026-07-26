@@ -26,7 +26,7 @@ function fixtureIo() {
 test("uses the platform config directory", () => {
   assert.equal(
     getConfigDirectory({ env: {}, home: "/Users/test", platform: "darwin" }),
-    "/Users/test/Library/Preferences/gikum",
+    "/Users/test/Library/Preferences/augi",
   );
   assert.equal(
     getConfigDirectory({
@@ -34,7 +34,7 @@ test("uses the platform config directory", () => {
       home: "/home/test",
       platform: "linux",
     }),
-    "/etc/xdg/test/gikum",
+    "/etc/xdg/test/augi",
   );
   assert.equal(
     getConfigDirectory({
@@ -42,11 +42,11 @@ test("uses the platform config directory", () => {
       home: "C:\\Users\\test",
       platform: "win32",
     }),
-    join("C:\\Users\\test\\AppData\\Roaming", "gikum"),
+    join("C:\\Users\\test\\AppData\\Roaming", "augi"),
   );
   assert.equal(
     getConfigDirectory({
-      env: { GIKUM_CONFIG_DIR: "/custom/config" },
+      env: { AUGI_CONFIG_DIR: "/custom/config" },
       home: "/Users/test",
       platform: "darwin",
     }),
@@ -55,14 +55,14 @@ test("uses the platform config directory", () => {
 });
 
 test("loads defaults when no config file exists", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-config-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-config-test-"));
   const path = join(directory, "config.json");
 
   assert.deepEqual(await loadConfig({ path }), { ...DEFAULT_CONFIG });
 });
 
 test("merges a saved config over the defaults", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-config-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-config-test-"));
   const path = join(directory, "nested", "config.json");
 
   await saveConfig({ "auto-stage-all": true }, { path });
@@ -78,12 +78,12 @@ test("merges a saved config over the defaults", async () => {
 });
 
 test("rejects a malformed config file", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "gikum-config-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augi-config-test-"));
   const path = join(directory, "config.json");
 
   await writeFile(path, "{ not json", "utf8");
 
-  await assert.rejects(loadConfig({ path }), /Failed to parse gitkum config/);
+  await assert.rejects(loadConfig({ path }), /Failed to parse augi config/);
 });
 
 test("config list prints every known key", async () => {
@@ -171,7 +171,7 @@ test("config prints help with no subcommand", async () => {
   const status = await runConfigCommand([], io);
 
   assert.equal(status, 0);
-  assert.match(state.stdout, /gitkum config/);
+  assert.match(state.stdout, /augi config/);
   assert.match(state.stdout, /auto-stage-all/);
   assert.match(state.stdout, /show-scope/);
   assert.match(state.stdout, /show-usage-summary/);

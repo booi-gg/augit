@@ -64,7 +64,7 @@ test("targets 50 characters and enforces a 72-character ceiling", () => {
 });
 
 test("does not truncate exact identifiers to meet the 50-character target", () => {
-  const subject = "feat(package): update package name to @booi-gg/gitkum";
+  const subject = "feat(package): update package name to @booi-gg/augi";
 
   assert.equal(normalizeCommitMessage({ subject, body: "" }).subject, subject);
 });
@@ -144,38 +144,38 @@ test("drops the scope entirely when scopes are disabled", () => {
 
 test("drops a boilerplate body that paraphrases the subject", () => {
   const result = normalizeCommitMessage({
-    subject: "build(package): rename to @booi-gg/gitkum",
+    subject: "build(package): rename to @booi-gg/augi",
     body:
-      "The package has been renamed to @booi-gg/gitkum to better reflect " +
+      "The package has been renamed to @booi-gg/augi to better reflect " +
       "the project's purpose and scope.",
   });
 
   assert.deepEqual(result, {
-    subject: "build(package): rename to @booi-gg/gitkum",
+    subject: "build(package): rename to @booi-gg/augi",
     body: "",
-    message: "build(package): rename to @booi-gg/gitkum",
+    message: "build(package): rename to @booi-gg/augi",
   });
 });
 
 test("drops verbose boilerplate around a focused change", () => {
   const result = normalizeCommitMessage({
-    subject: "feat(package): update package name to @booi-gg/gitkum",
+    subject: "feat(package): update package name to @booi-gg/augi",
     body:
-      "This commit updates the package name from 'gitkum' to " +
-      "'@booi-gg/gitkum' to reflect the new project name. The change is " +
+      "This commit updates the package name from 'augi' to " +
+      "'@booi-gg/augi' to reflect the new project name. The change is " +
       "straightforward and does not introduce any breaking changes.",
   });
 
   assert.equal(result.body, "");
   assert.equal(
     result.message,
-    "feat(package): update package name to @booi-gg/gitkum",
+    "feat(package): update package name to @booi-gg/augi",
   );
 });
 
 test("keeps concrete body context that is absent from the subject", () => {
   const result = normalizeCommitMessage({
-    subject: "build(package): rename to @booi-gg/gitkum",
+    subject: "build(package): rename to @booi-gg/augi",
     body: "Existing installs must update imports to use the scoped package.",
   });
 

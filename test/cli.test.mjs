@@ -35,8 +35,8 @@ test("prints help when requested", () => {
   });
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /^gitkum\n/);
-  assert.match(result.stdout, /gitkum \[options\]/);
+  assert.match(result.stdout, /^augi\n/);
+  assert.match(result.stdout, /augi \[options\]/);
   assert.match(result.stdout, /Generate concise Git commit messages/);
   assert.match(result.stdout, /--clear-model/);
   assert.match(result.stdout, /--model-info/);
@@ -48,8 +48,8 @@ test("prints help with no arguments instead of generating a commit", () => {
   });
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /^gitkum\n/);
-  assert.match(result.stdout, /gitkum \[options\]/);
+  assert.match(result.stdout, /^augi\n/);
+  assert.match(result.stdout, /augi \[options\]/);
   assert.match(result.stdout, /Generate concise Git commit messages/);
 });
 
@@ -59,7 +59,7 @@ test("prints help for the commit wrapper", () => {
   });
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /^gitkum commit\n/);
+  assert.match(result.stdout, /^augi commit\n/);
   assert.match(result.stdout, /--all/);
   assert.match(result.stdout, /--yes/);
   assert.match(result.stdout, /-- GIT_ARGS/);
@@ -112,7 +112,7 @@ test("shows information about the downloaded built-in model", async () => {
   assert.match(stdout, /Name: Qwen2\.5-Coder-1\.5B-Instruct Q4_K_M/);
   assert.match(stdout, /Parameters: 1\.78B \(1,777,088,000\)/);
   assert.match(stdout, /Quantization: Q4_K_M/);
-  assert.match(stdout, /Context: 32,768 tokens \(16,384 used by gitkum\)/);
+  assert.match(stdout, /Context: 32,768 tokens \(16,384 used by augi\)/);
   assert.match(stdout, /Output limit: 256 tokens/);
   assert.match(stdout, /Status: downloaded and verified/);
   assert.match(stdout, /Path: \/cache\/built-in\.gguf/);
@@ -1170,7 +1170,7 @@ test("rejects unknown commit options before the Git separator", async () => {
 
   assert.equal(status, 2);
   assert.match(stderr, /Unknown commit option: --no-verify/);
-  assert.match(stderr, /gitkum commit --help/);
+  assert.match(stderr, /augi commit --help/);
 });
 
 test("aborts a clean tree without showing the staging menu", async () => {
@@ -1201,7 +1201,7 @@ test("aborts a clean tree without showing the staging menu", async () => {
   assert.equal(stderr, "Not found!\nChecking for all changes...\nNot found!\n");
 });
 
-test("dispatches gitkum config to the config command", async () => {
+test("dispatches augi config to the config command", async () => {
   let stdout = "";
   const io = {
     stdout: { write: (value) => (stdout += value) },

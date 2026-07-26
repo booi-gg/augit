@@ -13,7 +13,7 @@ export const DEFAULT_CONFIG = Object.freeze({
 const CONFIG_SCHEMA = Object.freeze({
   "auto-stage-all": {
     description:
-      "Stage all changes automatically instead of prompting when gitkum commit finds none staged.",
+      "Stage all changes automatically instead of prompting when augi commit finds none staged.",
   },
   "show-scope": {
     description:
@@ -25,14 +25,14 @@ const CONFIG_SCHEMA = Object.freeze({
   },
 });
 
-export const configHelp = `gitkum config
+export const configHelp = `augi config
 
-Get or set gitkum's persisted configuration.
+Get or set augi's persisted configuration.
 
 Usage:
-  gitkum config list
-  gitkum config get <key>
-  gitkum config set <key> <true|false>
+  augi config list
+  augi config get <key>
+  augi config set <key> <true|false>
 
 Keys:
 ${Object.entries(CONFIG_SCHEMA)
@@ -56,19 +56,19 @@ export function getConfigDirectory({
   home = homedir(),
   platform = process.platform,
 } = {}) {
-  if (env.GIKUM_CONFIG_DIR) {
-    return env.GIKUM_CONFIG_DIR;
+  if (env.AUGI_CONFIG_DIR) {
+    return env.AUGI_CONFIG_DIR;
   }
 
   if (platform === "darwin") {
-    return join(home, "Library", "Preferences", "gikum");
+    return join(home, "Library", "Preferences", "augi");
   }
 
   if (platform === "win32") {
-    return join(env.APPDATA || join(home, "AppData", "Roaming"), "gikum");
+    return join(env.APPDATA || join(home, "AppData", "Roaming"), "augi");
   }
 
-  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "gikum");
+  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "augi");
 }
 
 export function getConfigFilePath(options = {}) {
@@ -94,9 +94,7 @@ export async function loadConfig(options = {}) {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(
-      `Failed to parse gitkum config at ${path}: ${error.message}`,
-    );
+    throw new Error(`Failed to parse augi config at ${path}: ${error.message}`);
   }
 
   const config = { ...DEFAULT_CONFIG };
@@ -178,7 +176,7 @@ export async function runConfigCommand(
     const [key] = rest;
 
     if (!key) {
-      throw new ConfigCommandUsageError("Usage: gitkum config get <key>");
+      throw new ConfigCommandUsageError("Usage: augi config get <key>");
     }
 
     assertKnownKey(key);
@@ -194,7 +192,7 @@ export async function runConfigCommand(
 
     if (!key || rawValue === undefined) {
       throw new ConfigCommandUsageError(
-        "Usage: gitkum config set <key> <true|false>",
+        "Usage: augi config set <key> <true|false>",
       );
     }
 
@@ -211,6 +209,6 @@ export async function runConfigCommand(
   }
 
   throw new ConfigCommandUsageError(
-    `Unknown config subcommand: ${subcommand}. Run gitkum config --help.`,
+    `Unknown config subcommand: ${subcommand}. Run augi config --help.`,
   );
 }
