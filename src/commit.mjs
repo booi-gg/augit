@@ -199,7 +199,7 @@ export async function runCommitWorkflow(
             );
           }
 
-          spinner.start("Loading local model...");
+          spinner.start("Loading local model: ");
         } else if (phase === "generating") {
           modelProgress.end?.();
           spinner.start("Generating commit message", { accent: true });
