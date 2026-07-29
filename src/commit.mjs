@@ -226,7 +226,7 @@ export async function runCommitWorkflow(
       let found = false;
 
       if (!stageEverything) {
-        io.stderr.write("Checking for unstaged changes...\n");
+        io.stderr.write("Checking unstaged changes...\n");
         found = await hasChanges({ cwd });
         io.stderr.write(
           `${formatChangesStatus(found, { output: io.stderr })}\n`,

@@ -1031,7 +1031,7 @@ test("can stage all changes and retry generation", async () => {
     [
       "Checking staged changes...",
       "Not found!",
-      "Checking for unstaged changes...",
+      "Checking unstaged changes...",
       "Found!",
       "",
       "$ git add --all --",
