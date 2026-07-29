@@ -1,15 +1,15 @@
 # Third-party notices
 
-## Qwen2.5-Coder-0.5B-Instruct GGUF
+## Qwen2.5-Coder-1.5B-Instruct GGUF
 
 `augi` downloads
-[Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF)
+[Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF)
 from Qwen at runtime. The weights are not included in this package.
 
 - License: Apache License 2.0
 - Quantization: Q4_K_M
-- Pinned revision: `ebb2015119c907b064c512bf053e945850b5875f`
-- SHA-256: `1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32`
+- Pinned revision: `38f6bab61d341b23a6c00226f32c0d6148bf9f43`
+- SHA-256: `cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046`
 
 Use of the downloaded model is subject to its upstream license.
 

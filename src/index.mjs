@@ -17,6 +17,7 @@ import {
   stageAllChanges,
 } from "./git.mjs";
 import {
+  formatDownloadProgress,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "./interactive.mjs";
@@ -269,10 +270,9 @@ export async function run(
 }
 
 function createProgressWriter(io) {
-  const barWidth = 24;
   const isInteractive = Boolean(io.stderr?.isTTY);
   const milestoneSize = isInteractive ? 1 : 5;
-  let lastLineLength = 0;
+  let frame = 0;
   let lastMilestone = -1;
   let lineOpen = false;
 
@@ -294,33 +294,32 @@ function createProgressWriter(io) {
 
     lastMilestone = milestone;
 
-    const filled = Math.round((milestone / 100) * barWidth);
-    const bar = `${"#".repeat(filled)}${"-".repeat(barWidth - filled)}`;
-    const line =
-      `Downloading model [${bar}] ${String(milestone).padStart(3)}%  ` +
-      `${formatBytes(boundedDownloaded)} / ${formatBytes(total)}`;
+    const line = formatDownloadProgress(
+      {
+        downloaded: formatBytes(boundedDownloaded),
+        frame: frame++,
+        percent: milestone,
+        total: formatBytes(total),
+      },
+      { output: io.stderr },
+    );
 
     if (!isInteractive) {
       io.stderr.write(`${line}\n`);
       return;
     }
 
-    const padding = " ".repeat(Math.max(0, lastLineLength - line.length));
-
-    io.stderr.write(`\r${line}${padding}`);
-    lastLineLength = line.length;
+    io.stderr.write(`\r\u001B[2K${line}`);
     lineOpen = milestone < 100;
 
     if (!lineOpen) {
       io.stderr.write("\n");
-      lastLineLength = 0;
     }
   };
 
   writeProgress.end = () => {
     if (lineOpen) {
       io.stderr.write("\n");
-      lastLineLength = 0;
       lineOpen = false;
     }
   };

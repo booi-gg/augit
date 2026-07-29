@@ -28,6 +28,7 @@ const TYPE_COLORS = Object.freeze({
   style: ANSI.magenta,
   test: ANSI.yellow,
 });
+const PROGRESS_BAR_WIDTH = 24;
 const generatedCommitChoices = [
   {
     color: ANSI.green,
@@ -62,6 +63,7 @@ const noStagedChangesChoices = [
     value: "cancel",
   },
 ];
+const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export async function promptForGeneratedCommit({
   color,
@@ -101,6 +103,37 @@ export function formatAccentText(
     text,
     [ANSI.bold, ANSI.lightGreen],
     color ?? supportsColor(output),
+  );
+}
+
+export function formatDownloadProgress(
+  { downloaded, frame = 0, percent, total },
+  { color, output = process.stderr, width = PROGRESS_BAR_WIDTH } = {},
+) {
+  const useColor = color ?? supportsColor(output);
+  const bounded = Math.min(Math.max(percent, 0), 100);
+  const filled = Math.round((bounded / 100) * width);
+  const barColor = progressColor(bounded);
+  const percentage = `${String(bounded).padStart(3)}%`;
+  const size = `${downloaded} / ${total}`;
+
+  if (!useColor) {
+    const bar = `${"#".repeat(filled)}${"-".repeat(width - filled)}`;
+
+    return `Downloading model [${bar}] ${percentage}  ${size}`;
+  }
+
+  const marker =
+    bounded === 100 ? "✔" : spinnerFrames[frame % spinnerFrames.length];
+  const bar =
+    paint("█".repeat(filled), [barColor], useColor) +
+    paint("░".repeat(width - filled), [ANSI.dim], useColor);
+
+  return (
+    `${paint(marker, [ANSI.bold, barColor], useColor)} ` +
+    `${paint("Downloading model", [ANSI.bold], useColor)} ${bar} ` +
+    `${paint(percentage, [ANSI.bold, barColor], useColor)}  ` +
+    paint(size, [ANSI.dim], useColor)
   );
 }
 
@@ -289,6 +322,18 @@ function paint(value, codes, enabled) {
   }
 
   return `\u001B[${codes.join(";")}m${value}\u001B[0m`;
+}
+
+function progressColor(percent) {
+  if (percent >= 100) {
+    return ANSI.lightGreen;
+  }
+
+  if (percent >= 66) {
+    return ANSI.green;
+  }
+
+  return percent >= 33 ? ANSI.yellow : ANSI.orange;
 }
 
 function supportsColor(output) {

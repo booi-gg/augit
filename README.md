@@ -29,11 +29,11 @@ node bin/cli.mjs commit
 
 The first generation downloads the built-in model, verifies its SHA-256
 digest, and caches it outside the package. The current download is
-491,400,064 bytes (about 491 MB). An ASCII progress bar shows the
+1,117,320,768 bytes (about 1.12 GB). An ASCII progress bar shows the
 transferred bytes and percentage while it downloads.
 
 ```text
-Downloading model [############------------]  50%  246 MB / 491 MB
+Downloading model [############------------]  50%  559 MB / 1.12 GB
 ```
 
 Example interactive output:
@@ -283,7 +283,7 @@ See [the architecture](docs/ARCHITECTURE.md),
 
 ## Model
 
-The built-in baseline is Qwen2.5-Coder-0.5B-Instruct GGUF Q4_K_M: 630,167,424
+The built-in baseline is Qwen2.5-Coder-1.5B-Instruct GGUF Q4_K_M: 1,777,088,000
 parameters with a 32,768-token model context. Augi uses a bounded
 16,384-token runtime context and generates at most 256 output tokens per
 attempt. The model is loaded through `node-llama-cpp`. Weights are pinned to an
