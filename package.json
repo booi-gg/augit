@@ -1,5 +1,5 @@
 {
-  "name": "augi",
+  "name": "augi-commit",
   "version": "0.1.8",
   "description": "Generate concise Git commit messages with a small local language model.",
   "keywords": [
