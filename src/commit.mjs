@@ -227,7 +227,11 @@ export async function runCommitWorkflow(
       let found = false;
 
       if (!stageEverything) {
-        io.stderr.write("Checking unstaged changes...\n");
+        io.stderr.write(
+          lastPhase
+            ? "Checking unstaged changes...\n"
+            : "Checking for all changes...\n",
+        );
         found = await hasChanges({ cwd });
         io.stderr.write(
           `${formatChangesStatus(found, { output: io.stderr })}\n`,
@@ -369,7 +373,7 @@ export async function runCommitWorkflow(
         });
 
         io.stderr.write(
-          `\n${formatStatusText("Committed successfully.", { output: io.stderr })}\n`,
+          `${requireCommit ? "" : "\n"}${formatStatusText("Committed successfully.", { output: io.stderr })}\n`,
         );
 
         try {
