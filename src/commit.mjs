@@ -362,6 +362,10 @@ export async function runCommitWorkflow(
           ...(gitArgs === undefined ? {} : { args: gitArgs }),
         });
 
+        io.stderr.write(
+          `${formatAccentText("Committed successfully.", { output: io.stderr })}\n`,
+        );
+
         try {
           if (await hasChanges({ cwd })) {
             io.stderr.write(

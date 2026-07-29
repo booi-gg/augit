@@ -1038,6 +1038,7 @@ test("can stage all changes and retry generation", async () => {
       "Loading local model: ",
       "Generating commit message",
       "$ git commit --message 'feat(cli): stage changes before generation' --",
+      "Committed successfully.",
       "",
       "You still have unstaged changes. Run again to commit those as well.",
       "",
