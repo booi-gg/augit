@@ -8,6 +8,7 @@ import {
 import {
   formatAccentText,
   formatChangesStatus,
+  formatMutedText,
   formatUnstagedNotice,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
@@ -163,7 +164,7 @@ export async function runCommitWorkflow(
 
   if (stageEverything) {
     io.stderr.write(
-      `\n${formatAccentText(formatGitCommand(["add", "--all", "--"]), { output: io.stderr })}\n`,
+      `\n${formatMutedText(formatGitCommand(["add", "--all", "--"]), { output: io.stderr })}\n\n`,
     );
     await stageChanges({ cwd });
   }
@@ -259,7 +260,7 @@ export async function runCommitWorkflow(
 
       io.stderr.write(
         requireCommit
-          ? `\n${formatAccentText(formatGitCommand(["add", "--all", "--"]), { output: io.stderr })}\n`
+          ? `\n${formatMutedText(formatGitCommand(["add", "--all", "--"]), { output: io.stderr })}\n\n`
           : "Staging all changes...\n",
       );
       await stageChanges({ cwd });
@@ -356,7 +357,7 @@ export async function runCommitWorkflow(
 
         if (requireCommit) {
           io.stderr.write(
-            `\n${formatAccentText(formatGitCommand(commandArgs), { output: io.stderr })}\n`,
+            `\n${formatMutedText(formatGitCommand(commandArgs), { output: io.stderr })}\n\n`,
           );
         }
 

@@ -1035,6 +1035,7 @@ test("can stage all changes and retry generation", async () => {
       "Found!",
       "",
       "$ git add --all --",
+      "",
       "Loading local model: ",
       "Generating commit message",
       "",
