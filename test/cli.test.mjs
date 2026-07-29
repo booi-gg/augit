@@ -483,11 +483,9 @@ test("commits the approved generated message", async () => {
     cwd: "/worktree",
     message,
   });
-  assert.equal(
-    stdout,
-    "[branch abc1234] feat(cli): review generated commits\n",
-  );
-  assert.match(stderr, /^\$ git commit --message/);
+  assert.equal(stdout, "");
+  assert.match(stderr, /\$ git commit --message/);
+  assert.match(stderr, /Committed successfully\./);
   assert.doesNotMatch(stderr, /unstaged changes/);
 });
 
@@ -545,7 +543,7 @@ test("does not fail the commit when the leftover-changes check errors", async ()
   });
 
   assert.equal(status, 0);
-  assert.match(stdout, /committed/);
+  assert.match(stderr, /Committed successfully\./);
   assert.doesNotMatch(stderr, /unstaged changes/);
 });
 
@@ -608,7 +606,8 @@ test("commit command reviews and commits the generated message", async () => {
     stderr,
     /\$ git commit --message 'feat\(cli\): add the commit wrapper' --/,
   );
-  assert.match(stdout, /\[branch abc1234\]/);
+  assert.match(stderr, /Committed successfully\./);
+  assert.equal(stdout, "");
 });
 
 test("commit --all --yes stages, commits, and forwards Git arguments", async () => {
@@ -680,9 +679,9 @@ test("commit --all --yes stages, commits, and forwards Git arguments", async () 
     ],
   ]);
   assert.match(stdout, /Generated commit message:\n\nfeat\(cli\)/);
-  assert.match(stdout, /committed/);
-  assert.match(stderr, /^\$ git add --all --/);
+  assert.match(stderr, /\$ git add --all --/);
   assert.match(stderr, /--no-verify --signoff --/);
+  assert.match(stderr, /Committed successfully\./);
 });
 
 test("commit requires --yes outside an interactive terminal", async () => {
@@ -754,7 +753,7 @@ test("commit reports a clean tree after --all without loading the model", async 
   assert.equal(stageCalls, 1);
   assert.equal(commitCalls, 0);
   assert.equal(disposed, 1);
-  assert.match(stderr, /^\$ git add --all --/);
+  assert.match(stderr, /\$ git add --all --/);
   assert.match(stderr, /Not found!/);
 });
 
@@ -1034,10 +1033,13 @@ test("can stage all changes and retry generation", async () => {
       "Not found!",
       "Checking for unstaged changes...",
       "Found!",
+      "",
       "$ git add --all --",
       "Loading local model: ",
       "Generating commit message",
+      "",
       "$ git commit --message 'feat(cli): stage changes before generation' --",
+      "",
       "Committed successfully.",
       "",
       "You still have unstaged changes. Run again to commit those as well.",

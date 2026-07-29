@@ -162,7 +162,9 @@ export async function runCommitWorkflow(
   }
 
   if (stageEverything) {
-    io.stderr.write(`${formatGitCommand(["add", "--all", "--"])}\n`);
+    io.stderr.write(
+      `\n${formatAccentText(formatGitCommand(["add", "--all", "--"]), { output: io.stderr })}\n`,
+    );
     await stageChanges({ cwd });
   }
 
@@ -257,7 +259,7 @@ export async function runCommitWorkflow(
 
       io.stderr.write(
         requireCommit
-          ? `${formatGitCommand(["add", "--all", "--"])}\n`
+          ? `\n${formatAccentText(formatGitCommand(["add", "--all", "--"]), { output: io.stderr })}\n`
           : "Staging all changes...\n",
       );
       await stageChanges({ cwd });
@@ -353,7 +355,9 @@ export async function runCommitWorkflow(
         commandArgs.push("--");
 
         if (requireCommit) {
-          io.stderr.write(`${formatGitCommand(commandArgs)}\n`);
+          io.stderr.write(
+            `\n${formatAccentText(formatGitCommand(commandArgs), { output: io.stderr })}\n`,
+          );
         }
 
         await commitChanges({
@@ -363,7 +367,7 @@ export async function runCommitWorkflow(
         });
 
         io.stderr.write(
-          `${formatAccentText("Committed successfully.", { output: io.stderr })}\n`,
+          `\n${formatAccentText("Committed successfully.", { output: io.stderr })}\n`,
         );
 
         try {
