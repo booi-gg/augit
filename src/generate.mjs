@@ -3,7 +3,10 @@ import { collectStagedChanges } from "./git.mjs";
 import { ensureBuiltInModel } from "./model.mjs";
 import { InvalidModelOutputError, normalizeCommitMessage } from "./output.mjs";
 import { buildCommitPromptDetails, buildRepairPrompt } from "./prompt.mjs";
-import { createNodeLlamaRuntime } from "./runtime.mjs";
+import {
+  createNodeLlamaRuntime,
+  ModelOutputTruncatedError,
+} from "./runtime.mjs";
 import { sanitizeGitContext } from "./sanitize.mjs";
 
 const DIVERSIFY_TEMPERATURE = 0.8;
@@ -58,15 +61,15 @@ export async function generateCommit({
       const diversify = attempt > 1 || previousMessageSet.size > 0;
 
       onStatus({ phase: "generating", attempt });
-      const output = await activeRuntime.generate({
-        modelPath: model.path,
-        prompt,
-        ...(diversify ? { seed: randomSeed() } : {}),
-        signal,
-        temperature: diversify ? DIVERSIFY_TEMPERATURE : 0,
-      });
 
       try {
+        const output = await activeRuntime.generate({
+          modelPath: model.path,
+          prompt,
+          ...(diversify ? { seed: randomSeed() } : {}),
+          signal,
+          temperature: diversify ? DIVERSIFY_TEMPERATURE : 0,
+        });
         const normalized = normalizeCommitMessage(output, {
           allowScope,
           requiredType,
@@ -99,11 +102,19 @@ export async function generateCommit({
           ...(usage ? { usage } : {}),
         };
       } catch (error) {
-        if (!(error instanceof InvalidModelOutputError) || attempt === 2) {
+        const isTruncated = error instanceof ModelOutputTruncatedError;
+        const isInvalidOutput = error instanceof InvalidModelOutputError;
+
+        if ((!isTruncated && !isInvalidOutput) || attempt === 2) {
           throw error;
         }
 
-        prompt = buildRepairPrompt(basePrompt, error.message);
+        prompt = isTruncated
+          ? buildRepairPrompt(
+              basePrompt,
+              "the previous response was cut off before it finished because it was too long. Write a noticeably shorter subject and a brief, concise body.",
+            )
+          : buildRepairPrompt(basePrompt, error.message);
       }
     }
 

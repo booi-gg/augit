@@ -16,6 +16,14 @@ export class ModelRuntimeError extends Error {
   }
 }
 
+export class ModelOutputTruncatedError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "ModelOutputTruncatedError";
+    this.code = "MODEL_OUTPUT_TRUNCATED";
+  }
+}
+
 export function createNodeLlamaRuntime(options = {}) {
   return new NodeLlamaRuntime(options);
 }
@@ -164,6 +172,13 @@ class NodeLlamaRuntime {
 
       if (cause instanceof ModelRuntimeError) {
         throw cause;
+      }
+
+      if (cause instanceof SyntaxError) {
+        throw new ModelOutputTruncatedError(
+          "The model's response was cut off before it finished, most likely because it hit the output token limit.",
+          { cause },
+        );
       }
 
       throw new ModelRuntimeError(

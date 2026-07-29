@@ -13,6 +13,7 @@ import {
   formatUnstagedNotice,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
+  SPINNER_FRAMES,
 } from "./interactive.mjs";
 import { InvalidModelOutputError } from "./output.mjs";
 import { createNodeLlamaRuntime } from "./runtime.mjs";
@@ -21,8 +22,7 @@ const noProgress = () => {};
 
 noProgress.end = () => {};
 
-const SPINNER_FRAMES = ["|", "/", "-", "\\"];
-const SPINNER_INTERVAL_MS = 100;
+const SPINNER_INTERVAL_MS = 80;
 const MAX_GENERATION_ATTEMPTS = 3;
 
 async function generateWithRetries(generate, generationOptions, io) {
@@ -194,7 +194,7 @@ export async function runCommitWorkflow(
 
         if (phase === "collecting") {
           if (!suppressStatusAnnouncements) {
-            io.stderr.write("Checking staged changes...\n");
+            io.stderr.write("Checking staged changes\n");
           }
         } else if (phase === "loading-model") {
           if (!suppressStatusAnnouncements) {
@@ -229,8 +229,8 @@ export async function runCommitWorkflow(
       if (!stageEverything) {
         io.stderr.write(
           lastPhase
-            ? "Checking unstaged changes...\n"
-            : "Checking for all changes...\n",
+            ? "Checking unstaged changes\n"
+            : "Checking for all changes\n",
         );
         found = await hasChanges({ cwd });
         io.stderr.write(

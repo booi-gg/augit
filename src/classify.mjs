@@ -101,23 +101,25 @@ export function extractKeyConcepts(context) {
     }
   }
 
-  if (/\bPromise\.all\b|\bconcurren(?:t|cy)\b/i.test(diff)) {
+  const addedText = extractChangedCode(diff, "+").join("\n");
+
+  if (/\bPromise\.all\b|\bconcurren(?:t|cy)\b/i.test(addedText)) {
     add("concurrency");
   }
 
-  if (/\bmatrix\b/i.test(diff)) {
+  if (/\bmatrix\b/i.test(addedText)) {
     add("matrix");
   }
 
-  if (/\bNode(?:\.js)?\b/i.test(diff)) {
+  if (/\bNode(?:\.js)?\b/i.test(addedText)) {
     add("Node.js");
   }
 
-  if (/\bpnpm\b/i.test(diff)) {
+  if (/\bpnpm\b/i.test(addedText)) {
     add("pnpm");
   }
 
-  if (/\brm\s*\(|\bdelete\b|\bdeletions?\b|\bremove\b/i.test(diff)) {
+  if (/\brm\s*\(|\bdelete\b|\bdeletions?\b|\bremove\b/i.test(addedText)) {
     add("deletion");
   }
 

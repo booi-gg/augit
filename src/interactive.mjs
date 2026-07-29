@@ -63,7 +63,19 @@ const noStagedChangesChoices = [
     value: "cancel",
   },
 ];
-const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+export const SPINNER_FRAMES = Object.freeze([
+  "⠋",
+  "⠙",
+  "⠹",
+  "⠸",
+  "⠼",
+  "⠴",
+  "⠦",
+  "⠧",
+  "⠇",
+  "⠏",
+]);
 
 export async function promptForGeneratedCommit({
   color,
@@ -124,7 +136,7 @@ export function formatDownloadProgress(
   }
 
   const marker =
-    bounded === 100 ? "✔" : spinnerFrames[frame % spinnerFrames.length];
+    bounded === 100 ? "✔" : SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
   const bar =
     paint("█".repeat(filled), [barColor], useColor) +
     paint("░".repeat(width - filled), [ANSI.dim], useColor);
