@@ -281,7 +281,7 @@ test("generates and commits a message with the commit command", async () => {
   assert.equal(status, 0);
   assert.equal(
     stdout,
-    "Generated commit message:\n\nfeat(cli): generate staged commit messages\n\n",
+    "Generated commit message:\n\nfeat(cli): generate staged commit messages\n\n\n",
   );
   assert.match(stderr, /Checking staged changes/);
   assert.match(stderr, /Found!/);
@@ -381,7 +381,7 @@ test("prints aggregate token, CPU, and GPU usage to standard error", async () =>
   assert.equal(status, 0);
   assert.equal(
     stdout,
-    "Generated commit message:\n\nfeat(cli): report local inference usage\n\n",
+    "Generated commit message:\n\nfeat(cli): report local inference usage\n\n\n",
   );
   assert.match(stderr, /Tokens: 2,048 total \(2,000 input, 48 output\)/);
   assert.match(stderr, /Wall time: 2\.50 s/);
@@ -436,7 +436,7 @@ test("hides the usage summary by default", async () => {
   assert.equal(status, 0);
   assert.equal(
     stdout,
-    "Generated commit message:\n\nfeat(cli): default to a quiet usage summary\n\n",
+    "Generated commit message:\n\nfeat(cli): default to a quiet usage summary\n\n\n",
   );
   assert.doesNotMatch(stderr, /Generation usage/);
 });
@@ -1025,14 +1025,14 @@ test("can stage all changes and retry generation", async () => {
   assert.equal(stageCalls, 1);
   assert.equal(
     stdout,
-    "Generated commit message:\n\nfeat(cli): stage changes before generation\n\n",
+    "Generated commit message:\n\nfeat(cli): stage changes before generation\n\n\n",
   );
   assert.equal(
     stderr,
     [
       "Checking staged changes...",
       "Not found!",
-      "Checking for all changes...",
+      "Checking for unstaged changes...",
       "Found!",
       "$ git add --all --",
       "Loading local model: ",
@@ -1098,7 +1098,7 @@ test("auto-stages without prompting when autoStageAll is enabled", async () => {
   assert.equal(stageCalls, 1);
   assert.equal(
     stdout,
-    "Generated commit message:\n\nfeat(cli): auto-stage before generation\n\n",
+    "Generated commit message:\n\nfeat(cli): auto-stage before generation\n\n\n",
   );
 });
 

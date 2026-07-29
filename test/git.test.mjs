@@ -102,7 +102,7 @@ test("commits staged changes with the generated subject and body", async (t) => 
   const log = await git(directory, "log", "-1", "--format=%B");
   const status = await git(directory, "status", "--short");
 
-  assert.match(result.stdout, /feat\(cli\): review generated commits/);
+  assert.equal(result.code, 0);
   assert.equal(log.stdout.trimEnd(), message);
   assert.equal(status.stdout, "");
 });

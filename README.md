@@ -143,7 +143,7 @@ The next generation downloads and verifies the model again.
 
 Each check is printed as it happens: `Checking staged changes...` followed by
 `Found!` or `Not found!`. If nothing is staged, it then checks the working
-tree: `Checking for all changes...` followed by `Found!` or `Not found!`. A
+tree: `Checking for unstaged changes...` followed by `Found!` or `Not found!`. A
 clean working tree exits without an action menu. If unstaged or untracked
 changes exist, it offers to stage them all or cancel. Pass `--all` to stage
 all changes explicitly before generation. In non-interactive use, `augi
@@ -277,8 +277,9 @@ pnpm benchmark -- --model-path /absolute/path/model.gguf --json
 ```
 
 See [the architecture](docs/ARCHITECTURE.md),
-[benchmark methodology](docs/BENCHMARKS.md), and
-[MVP plan](docs/PLAN.md).
+[benchmark methodology](docs/BENCHMARKS.md)
+
+<!-- and [MVP plan](docs/PLAN.md). -->
 
 ## Model
 

@@ -223,7 +223,7 @@ export async function runCommitWorkflow(
       let found = false;
 
       if (!stageEverything) {
-        io.stderr.write("Checking for all changes...\n");
+        io.stderr.write("Checking for unstaged changes...\n");
         found = await hasChanges({ cwd });
         io.stderr.write(
           `${formatChangesStatus(found, { output: io.stderr })}\n`,
@@ -288,7 +288,7 @@ export async function runCommitWorkflow(
       let action;
 
       if (requireCommit && autoConfirm) {
-        io.stdout.write(`Generated commit message:\n\n${message}\n\n`);
+        io.stdout.write(`Generated commit message:\n\n${message}\n\n\n`);
         action = "commit";
       } else {
         action = await promptGeneratedCommit({
@@ -356,19 +356,11 @@ export async function runCommitWorkflow(
           io.stderr.write(`${formatGitCommand(commandArgs)}\n`);
         }
 
-        const result = await commitChanges({
+        await commitChanges({
           cwd,
           message,
           ...(gitArgs === undefined ? {} : { args: gitArgs }),
         });
-
-        if (result?.stderr) {
-          io.stderr.write(result.stderr);
-        }
-
-        if (result?.stdout) {
-          io.stdout.write(result.stdout);
-        }
 
         try {
           if (await hasChanges({ cwd })) {

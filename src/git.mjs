@@ -120,7 +120,10 @@ export async function commitStagedChanges({
     throw new TypeError("Git commit arguments must be an array of strings.");
   }
 
-  return runGit(["commit", "--message", message, ...args, "--"], { cwd });
+  return runGit(["commit", "--message", message, ...args, "--"], {
+    cwd,
+    inheritStdio: true,
+  });
 }
 
 export function parseNameStatus(value, { truncated = false } = {}) {
@@ -178,6 +181,7 @@ function runProcess(
   {
     allowFailure = false,
     cwd,
+    inheritStdio = false,
     maxStdoutBytes = 64 * 1024,
     maxStderrBytes = 64 * 1024,
   },
@@ -191,15 +195,17 @@ function runProcess(
         GIT_PAGER: "cat",
         LC_ALL: "C",
       },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: inheritStdio
+        ? ["ignore", "inherit", "inherit"]
+        : ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
     const stdout = createCapture(maxStdoutBytes);
     const stderr = createCapture(maxStderrBytes);
     let settled = false;
 
-    child.stdout.on("data", (chunk) => stdout.push(chunk));
-    child.stderr.on("data", (chunk) => stderr.push(chunk));
+    child.stdout?.on("data", (chunk) => stdout.push(chunk));
+    child.stderr?.on("data", (chunk) => stderr.push(chunk));
     child.on("error", (cause) => {
       if (!settled) {
         settled = true;
