@@ -9,6 +9,7 @@ import {
   formatAccentText,
   formatChangesStatus,
   formatMutedText,
+  formatStatusText,
   formatUnstagedNotice,
   promptForGeneratedCommit,
   promptForNoStagedChanges,
@@ -368,7 +369,7 @@ export async function runCommitWorkflow(
         });
 
         io.stderr.write(
-          `\n${formatAccentText("Committed successfully.", { output: io.stderr })}\n`,
+          `\n${formatStatusText("Committed successfully.", { output: io.stderr })}\n`,
         );
 
         try {

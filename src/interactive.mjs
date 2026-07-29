@@ -108,6 +108,17 @@ export function formatMutedText(text, { color, output = process.stderr } = {}) {
   return paint(text, [ANSI.dim], color ?? supportsColor(output));
 }
 
+export function formatStatusText(
+  text,
+  { color, output = process.stderr } = {},
+) {
+  return paint(
+    text,
+    [ANSI.bold, ANSI.vividBlue],
+    color ?? supportsColor(output),
+  );
+}
+
 export function formatUnstagedNotice({ color, output = process.stderr } = {}) {
   const message =
     "You still have unstaged changes. Run again to commit those as well.";
