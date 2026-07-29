@@ -5,17 +5,19 @@ import {
   TARGET_SUBJECT_LENGTH,
 } from "./output.mjs";
 
+// Length is a prompt rule, not a grammar rule. A grammar `maxLength` forces the
+// closing quote at the limit, so an over-long subject is amputated mid-word
+// ("fix(scope): update default text for") instead of being rewritten. Length is
+// validated in output.mjs, and a violation is repaired by another attempt.
 export const COMMIT_OUTPUT_SCHEMA = Object.freeze({
   type: "object",
   properties: {
     subject: {
       type: "string",
       minLength: 1,
-      maxLength: MAX_SUBJECT_LENGTH,
     },
     body: {
       type: "string",
-      maxLength: MAX_BODY_LENGTH,
     },
   },
   additionalProperties: false,
@@ -133,6 +135,10 @@ Subject rules:
   characters, including its type${allowScope ? " and scope" : ""}. Shorter is better.
 - Use up to ${MAX_SUBJECT_LENGTH} characters only when needed to preserve
   important exact identifiers. Never truncate a name, flag, or version.
+- The subject must be a complete phrase that ends on its own. Plan it to fit
+  before you write it; never run into the limit and stop mid-word or after a
+  dangling word such as "for", "to", "and", or "the". If it does not fit,
+  rewrite it shorter, do not cut it.
 - Allowed types: ${TYPES}
 - If untrusted data includes a non-null "requiredType", use that exact type. It
   was selected from unambiguous file and diff structure.
@@ -150,6 +156,9 @@ Subject rules:
   - chore for other maintenance.
 - Name the single most important change in the staged diff. Put every other
   change in the body instead of trying to fit it in the subject.
+- When the diff contains several changes, rank them and describe only the
+  top one. Never join two changes with "and", a comma, or a slash to get
+  them both into the subject; the rest belong in the body.
 ${
   allowScope
     ? `- Do not repeat the scope in the description. For example, prefer

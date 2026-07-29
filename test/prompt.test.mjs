@@ -36,9 +36,28 @@ test("defines the grammar-constrained response shape", () => {
     "subject",
     "body",
   ]);
-  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.subject.maxLength, 72);
-  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.maxLength, 400);
+  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.subject.type, "string");
   assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.type, "string");
+});
+
+test("leaves length to the prompt so the grammar cannot cut a subject short", () => {
+  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.subject.maxLength, undefined);
+  assert.equal(COMMIT_OUTPUT_SCHEMA.properties.body.maxLength, undefined);
+
+  const prompt = buildCommitPrompt(context);
+
+  assert.match(prompt, /at most 72 characters/);
+  assert.match(prompt, /at most 400 characters/);
+  assert.match(prompt, /complete phrase that ends on its own/);
+  assert.match(prompt, /rewrite it shorter, do not cut it/);
+});
+
+test("tells the model to demote secondary changes to the body", () => {
+  const prompt = buildCommitPrompt(context);
+
+  assert.match(prompt, /single most important change/);
+  assert.match(prompt, /rank them and describe only the\n  top one/);
+  assert.match(prompt, /Never join two changes/);
 });
 
 test("asks regeneration to avoid recent proposals", () => {
