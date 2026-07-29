@@ -17,25 +17,25 @@ import { pipeline } from "node:stream/promises";
 
 import lockfile from "proper-lockfile";
 
-const MODEL_REVISION = "38f6bab61d341b23a6c00226f32c0d6148bf9f43";
-const MODEL_FILENAME = "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf";
+const MODEL_REVISION = "ebb2015119c907b064c512bf053e945850b5875f";
+const MODEL_FILENAME = "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf";
 const DEFAULT_LOCK_STALE_MS = 30_000;
 const DEFAULT_LOCK_WAIT_MS = 2 * 60 * 60 * 1_000;
 const DEFAULT_LOCK_RETRY_MS = 250;
 const DEFAULT_LEGACY_LOCK_GRACE_MS = 2_000;
 
 export const BUILT_IN_MODEL = Object.freeze({
-  id: "qwen2.5-coder-1.5b-instruct-q4-k-m",
-  name: "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
+  id: "qwen2.5-coder-0.5b-instruct-q4-k-m",
+  name: "Qwen2.5-Coder-0.5B-Instruct Q4_K_M",
   filename: MODEL_FILENAME,
-  byteLength: 1_117_320_768,
-  parameterCount: 1_777_088_000,
+  byteLength: 491_400_064,
+  parameterCount: 630_167_424,
   quantization: "Q4_K_M",
   contextSize: 32_768,
   vocabularySize: 151_936,
-  sha256: "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046",
+  sha256: "1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32",
   url:
-    "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF" +
+    "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF" +
     `/resolve/${MODEL_REVISION}/${MODEL_FILENAME}?download=true`,
 });
 

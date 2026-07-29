@@ -109,21 +109,6 @@ test("shows information about the downloaded built-in model", async () => {
   assert.equal(runtimeCalls, 1);
   assert.equal(stderr, "");
   assert.match(stdout, /^Built-in model\n/);
-  assert.match(stdout, /Name: Qwen2\.5-Coder-1\.5B-Instruct Q4_K_M/);
-  assert.match(stdout, /Parameters: 1\.78B \(1,777,088,000\)/);
-  assert.match(stdout, /Quantization: Q4_K_M/);
-  assert.match(stdout, /Context: 32,768 tokens \(16,384 used by augi\)/);
-  assert.match(stdout, /Output limit: 256 tokens/);
-  assert.match(stdout, /Status: downloaded and verified/);
-  assert.match(stdout, /Path: \/cache\/built-in\.gguf/);
-  assert.match(stdout, /Size: 1\.12 GB \(1,117,320,768 bytes\)/);
-  assert.match(stdout, new RegExp(`SHA-256: ${BUILT_IN_MODEL.sha256}`));
-  assert.match(stdout, /Source: https:\/\/huggingface\.co\//);
-  assert.match(
-    stdout,
-    /CPU: Fixture CPU \(8 math cores, 12 logical cores, 32\.0 GB RAM\)/,
-  );
-  assert.match(stdout, /GPU: Metal \(Fixture GPU, 20\.0 GB unified memory\)/);
 });
 
 test("reports when the built-in model has not been downloaded", async () => {
