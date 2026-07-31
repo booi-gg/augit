@@ -17,25 +17,25 @@ import { pipeline } from "node:stream/promises";
 
 import lockfile from "proper-lockfile";
 
-const MODEL_REVISION = "38f6bab61d341b23a6c00226f32c0d6148bf9f43";
-const MODEL_FILENAME = "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf";
+const MODEL_REVISION = "e7d0997e49c9cb00d88b4c1a6a16aa894b0bbc31";
+const MODEL_FILENAME = "Llama-3.2-3B-Instruct-Q4_K_M.gguf";
 const DEFAULT_LOCK_STALE_MS = 30_000;
 const DEFAULT_LOCK_WAIT_MS = 2 * 60 * 60 * 1_000;
 const DEFAULT_LOCK_RETRY_MS = 250;
 const DEFAULT_LEGACY_LOCK_GRACE_MS = 2_000;
 
 export const BUILT_IN_MODEL = Object.freeze({
-  id: "qwen2.5-coder-1.5b-instruct-q4-k-m",
-  name: "Qwen2.5-Coder-1.5B-Instruct Q4_K_M",
+  id: "llama-3.2-3b-instruct-q4-k-m",
+  name: "Llama-3.2-3B-Instruct Q4_K_M",
   filename: MODEL_FILENAME,
-  byteLength: 1_117_320_768,
-  parameterCount: 1_777_088_000,
+  byteLength: 2_019_377_600,
+  parameterCount: 3_212_749_824,
   quantization: "Q4_K_M",
-  contextSize: 32_768,
-  vocabularySize: 151_936,
-  sha256: "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046",
+  contextSize: 131_072,
+  vocabularySize: 128_256,
+  sha256: "6c99cc00ae910f6a532a80022cb4bc1939094527a089c29294b841c0bd87f74d",
   url:
-    "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF" +
+    "https://huggingface.co/unsloth/Llama-3.2-3B-Instruct-GGUF" +
     `/resolve/${MODEL_REVISION}/${MODEL_FILENAME}?download=true`,
 });
 
