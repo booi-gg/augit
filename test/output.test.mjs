@@ -252,6 +252,19 @@ test("drops a one-line body that repeats every subject word", () => {
   assert.equal(result.body, "");
 });
 
+test("drops a body that restates the subject with added file paths", () => {
+  const result = normalizeCommitMessage({
+    subject: "fix(mapping): fix incorrect file path lookup",
+    body:
+      "Replaced incorrect file path lookup with the correct path to\n" +
+      "`files/mapping` in `src/files/index.js`.",
+  });
+
+  // The paths are detail about the same edit, not a second task.
+  assert.equal(result.body, "");
+  assert.equal(result.message, "fix(mapping): fix incorrect file path lookup");
+});
+
 test("keeps a multi-line body that names other tasks", () => {
   const result = normalizeCommitMessage({
     subject: "fix(auth): reject expired refresh tokens",

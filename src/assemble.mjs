@@ -15,6 +15,7 @@ import {
   MAX_BODY_LINE_LENGTH,
   MAX_SUBJECT_LENGTH,
 } from "./output.mjs";
+import { namesOnlyTheFile } from "./summarize.mjs";
 
 const TEST_PATH =
   /(^|\/)(?:tests?|__tests__|spec)(\/|$)|\.(?:test|spec)\.[cm]?[jt]sx?$/i;
@@ -81,7 +82,11 @@ export function assembleCommitFromSummaries(
       MAX_SUBJECT_LENGTH - prefix.length,
     );
 
-    if (!description) {
+    // A summary earns its place by being concrete, and shortening can take that
+    // away: "add a feature to assemble.mjs, which ranks tasks by churn" becomes
+    // "add a feature to assemble.mjs". Re-checking after the cut, not before, is
+    // what stops a vacuous subject reaching the user.
+    if (!description || namesOnlyTheFile(description, headline.path)) {
       continue;
     }
 
@@ -119,7 +124,7 @@ function buildBody(rest, description) {
     const text = fitLine(toImperative(entry.summary), MAX_BODY_LINE_LENGTH - 2);
     const key = normalizeForCompare(text);
 
-    if (!text || seen.has(key)) {
+    if (!text || seen.has(key) || namesOnlyTheFile(text, entry.path)) {
       continue;
     }
 

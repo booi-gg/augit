@@ -490,10 +490,26 @@ function isRedundantBody(subject, body) {
       body,
     );
 
-  // A single line that repeats every word of the subject is that subject said
-  // at greater length; its extra words are connective tissue, not new facts.
-  // Real bodies list the other tasks in the diff, so they run to several lines.
-  if (subjectCoverage === 1 && !body.includes("\n")) {
+  // A body exists to carry the tasks the subject had no room for. A single line
+  // that covers most of the subject's words is not another task, it is this task
+  // again at greater length - and the file paths it adds are detail about the
+  // same edit, not a second edit, so they must not buy it a pass:
+  //
+  //   fix(mapping): fix incorrect file path lookup
+  //   Replaced incorrect file path lookup with the correct path to
+  //   `files/mapping` in `src/files/index.js`.
+  //
+  // Other tasks arrive as their own "- " items. Prose is therefore either extra
+  // context, which is worth keeping, or the subject a second time, which is not.
+  // Total overlap does not separate the two: the example above shares four of
+  // six words with its subject, because it swaps one verb for a synonym and adds
+  // a path, and prose that supplies a real migration note may share none. What
+  // separates them is a repeated run of the subject's own words.
+  const listsTasks = body
+    .split("\n")
+    .some((line) => /^\s*[-*]\s+\S/.test(line));
+
+  if (!listsTasks && repeatsSubjectPhrase(subjectTokens, bodyTokens)) {
     return true;
   }
 
@@ -501,6 +517,36 @@ function isRedundantBody(subject, body) {
     subjectCoverage >= 0.75 &&
     (startsWithBoilerplate || novelBodyTokens.length <= 1)
   );
+}
+
+/**
+ * True when the body contains three of the subject's words in a row.
+ *
+ * Three is long enough that ordinary prose does not hit it by chance and short
+ * enough to catch a restatement: "fix incorrect file path lookup" reappearing as
+ * "Replaced incorrect file path lookup with the correct path to ...". Stemming is
+ * shared with the coverage check, so a plural or a tense does not hide the run.
+ */
+function repeatsSubjectPhrase(subjectTokens, bodyTokens, length = 3) {
+  if (subjectTokens.length < length || bodyTokens.length < length) {
+    return false;
+  }
+
+  for (let start = 0; start + length <= subjectTokens.length; start += 1) {
+    const phrase = subjectTokens.slice(start, start + length);
+
+    for (let at = 0; at + length <= bodyTokens.length; at += 1) {
+      if (
+        phrase.every((token, offset) =>
+          tokensMatch(token, bodyTokens[at + offset]),
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function tokenize(value) {

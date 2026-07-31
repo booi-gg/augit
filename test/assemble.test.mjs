@@ -93,11 +93,36 @@ test("does not leave a shortened subject hanging mid-clause", () => {
       path: "src/verbose.mjs",
       changedLines: 900,
       summary:
-        "Added a new feature to the summarize.mjs file, which now reads every staged file",
+        "Replaced the byte-prefix diff cut with a shared per-file budget, so that every staged file stays visible",
     },
   ]);
 
+  assert.ok(result.subject.length <= MAX_SUBJECT_LENGTH);
   assert.doesNotMatch(result.subject, /\b(?:which|now|the|and|to|for|is)$/);
+});
+
+test("skips a headline that shortening has emptied of meaning", () => {
+  const vacuous = {
+    path: "src/verbose.mjs",
+    changedLines: 900,
+    summary:
+      "Added a new feature to the verbose.mjs file, which now ranks every staged task by churn",
+  };
+
+  // Alone it leaves nothing to say, because the cut removes the only substance.
+  assert.equal(assembleCommitFromSummaries([vacuous]), null);
+
+  // Alongside a concrete change, the concrete one becomes the headline.
+  const result = assembleCommitFromSummaries([
+    vacuous,
+    {
+      path: "src/prompt.mjs",
+      changedLines: 300,
+      summary: "Replaced the byte-prefix diff cut with a per-file budget",
+    },
+  ]);
+
+  assert.match(result.subject, /per-file budget/);
 });
 
 test("produces a message the output validator accepts", () => {

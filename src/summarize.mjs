@@ -158,6 +158,10 @@ Output one JSON object, one string key: "summary".
 
 RULES
 - One sentence, max ${MAX_SUMMARY_LENGTH} chars. No type prefix. No scope.
+- Start with the verb, then the exact thing changed. Put the most specific
+  detail in the first 6 words. Later words may be cut away.
+- Never start with the filename, "a new feature", "a new function",
+  "functionality", "support". Those first words waste the sentence.
 - Name the concrete edit: what got added, removed, replaced, moved, renamed,
   guarded. Use exact identifiers, flags, option names from the diff.
 - Every word traces to a "+" or "-" line below. No line backs word: drop word.
@@ -365,7 +369,7 @@ const EMPTY_WORDS = new Set([
  * The path is already in the ranking data, so a summary that only repeats it has
  * spent its one line saying what the caller knew.
  */
-function namesOnlyTheFile(summary, path) {
+export function namesOnlyTheFile(summary, path) {
   const names = new Set();
 
   if (path) {
