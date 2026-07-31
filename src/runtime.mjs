@@ -123,7 +123,15 @@ class NodeLlamaRuntime {
     };
   }
 
-  async generate({ modelPath, prompt, seed, signal, temperature = 0 } = {}) {
+  async generate({
+    maxTokens,
+    modelPath,
+    prompt,
+    schema = COMMIT_OUTPUT_SCHEMA,
+    seed,
+    signal,
+    temperature = 0,
+  } = {}) {
     if (this.disposed) {
       throw new ModelRuntimeError("The local model runtime is disposed.");
     }
@@ -146,8 +154,7 @@ class NodeLlamaRuntime {
         this.getModel(modelPath),
       ]);
       llama = loadedLlama;
-      const grammar =
-        await llama.createGrammarForJsonSchema(COMMIT_OUTPUT_SCHEMA);
+      const grammar = await llama.createGrammarForJsonSchema(schema);
 
       context = await model.createContext({ contextSize: this.contextSize });
       sequence = context.getSequence();
@@ -158,7 +165,7 @@ class NodeLlamaRuntime {
 
       const response = await session.prompt(prompt, {
         grammar,
-        maxTokens: this.maxTokens,
+        maxTokens: maxTokens || this.maxTokens,
         signal,
         temperature,
         ...(temperature > 0 && seed !== undefined ? { seed } : {}),

@@ -1,7 +1,10 @@
 import { spawn } from "node:child_process";
 import { basename } from "node:path";
 
-export const DEFAULT_MAX_DIFF_BYTES = 24 * 1024;
+// Collection keeps far more than a prompt can hold, because the prompt shares
+// its budget across files and can only share what was captured. At 24 KiB a
+// single large file ended the capture before Git reached the tests.
+export const DEFAULT_MAX_DIFF_BYTES = 96 * 1024;
 const DEFAULT_MAX_STATUS_BYTES = 512 * 1024;
 const DEFAULT_RECENT_COMMIT_LIMIT = 8;
 

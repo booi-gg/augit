@@ -14,6 +14,9 @@ importers:
       proper-lockfile:
         specifier: 4.1.2
         version: 4.1.2
+      widget:
+        specifier: ^0.0.2
+        version: 0.0.2
     devDependencies:
       prettier:
         specifier: 3.9.6
@@ -214,6 +217,12 @@ packages:
 
   async-retry@1.3.3:
     resolution: {integrity: sha512-wfr/jstw9xNi/0teMHrRW7dsz3Lt5ARhYNZ2ewpadnhaIp5mbALhOAP+EAdsC7t4Z6wqsDVv9+W6gm1Dk9mEyw==}
+
+  bean@1.0.15:
+    resolution: {integrity: sha512-/X7mF8caOC3qZYSJu62wEJ7AO5/ZIKwwvjBFded5s8IDdRLJSAXfYLJaNPIa/ALThJIWtqtJbbfGbGOjISX1bw==}
+
+  bonzo@2.0.0:
+    resolution: {integrity: sha512-RQG5bX6VhxP6H8hOcU5LNk9FmfKwppbxVj8J1cVSZcHYyKaxyC+tV5VUhRYzpgsw5AsYmlsQpBLIGu6DPXPngA==}
 
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
@@ -573,6 +582,9 @@ packages:
     engines: {node: ^20.17.0 || >=22.9.0}
     hasBin: true
 
+  widget@0.0.2:
+    resolution: {integrity: sha512-FapCmbjwwhTKNAsKqU1MPzHo5+2ajxWENWkextyZYNs/FFCPwGborP+1IFQrMDTgj7x6QSVTyhSfIlC87YeGDw==}
+
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
@@ -714,6 +726,10 @@ snapshots:
   async-retry@1.3.3:
     dependencies:
       retry: 0.13.1
+
+  bean@1.0.15: {}
+
+  bonzo@2.0.0: {}
 
   bytes@3.1.2: {}
 
@@ -1080,6 +1096,11 @@ snapshots:
   which@6.0.1:
     dependencies:
       isexe: 4.0.0
+
+  widget@0.0.2:
+    dependencies:
+      bean: 1.0.15
+      bonzo: 2.0.0
 
   wrap-ansi@7.0.0:
     dependencies:

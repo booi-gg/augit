@@ -59,6 +59,17 @@ const GENERIC_BODY_WORDS = new Set([
   "update",
   "updated",
 ]);
+// Vacuous verbs. Every one has a concrete alternative that names the actual
+// change, and the prompt already asks for that alternative. Matched anywhere,
+// not just at the start: "update dependencies to improve performance" is the
+// same empty claim as "improve performance". The trailing guard keeps package
+// names such as better-sqlite3 and refine-cli out of it.
+export const WEAK_VERB =
+  /\b(?:better|enhances?|improves?|optimi[sz]es?|polish(?:es)?|refines?|tweaks?)(?![-\w])/i;
+// Sentences that sell the change instead of stating it. A small model reaches
+// for these when it has nothing concrete left to say.
+export const BENEFIT_CLAIM =
+  /\b(?:user experience|easier to (?:\w+)|more (?:readable|maintainable|robust|intuitive|user-friendly)|better (?:reflects?|user|readability|experience)|improves? the\b|makes? (?:it|the \w+) (?:easier|better|clearer|simpler))/i;
 const TOKEN_STOP_WORDS = new Set([
   "a",
   "an",
@@ -101,7 +112,7 @@ export class InvalidModelOutputError extends Error {
 
 export function normalizeCommitMessage(
   value,
-  { allowScope = true, requiredType } = {},
+  { allowScope = true, evidence, requiredType } = {},
 ) {
   const output = parseOutput(value);
 
@@ -113,13 +124,23 @@ export function normalizeCommitMessage(
     throw new InvalidModelOutputError("body must be a string.");
   }
 
+  const searchableDiff = evidence ? flattenDiffForSearch(evidence.diff) : "";
   const subject = normalizeSubject(output.subject, {
     allowScope,
     requiredType,
+    searchableDiff,
+    stagedFiles: evidence?.files || [],
   });
   let body = normalizeBody(output.body || "");
 
-  if (isRedundantBody(subject, body)) {
+  // A body is optional, so a bad one is dropped rather than retried. Losing real
+  // context costs less than committing a hollow claim, and the subject already
+  // carries the change.
+  if (
+    isRedundantBody(subject, body) ||
+    BENEFIT_CLAIM.test(body) ||
+    body.split("\n").some((line) => isCopiedFromDiff(line, searchableDiff))
+  ) {
     body = "";
   } else {
     body = wrapBody(body);
@@ -166,7 +187,104 @@ function parseOutput(value) {
   };
 }
 
-function normalizeSubject(value, { allowScope = true, requiredType } = {}) {
+/**
+ * True when `text` is not a description of the change but a run of characters
+ * lifted straight out of it.
+ *
+ * A staged diff often carries prose that looks like an answer: a commit message
+ * in a test fixture, a heading in a README, a docstring. A small model will
+ * return that prose verbatim, and every word of it is "grounded" because it
+ * really is in the diff, so grounding alone cannot see the problem. Describing
+ * a change and quoting it are different acts.
+ */
+export function isCopiedFromDiff(text, searchableDiff) {
+  if (!searchableDiff) {
+    return false;
+  }
+
+  const needle = flattenForSearch(text.replace(/^[-*]\s*/, ""));
+
+  // Short phrases collide with ordinary code by chance; a long one does not.
+  return needle.length >= 16 && searchableDiff.includes(needle);
+}
+
+export function flattenForSearch(value) {
+  return String(value || "")
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * A diff flattened for the copy check, with the markup that a sentence in the
+ * diff is wrapped in removed: the leading `+`/`-`, and comment openers.
+ *
+ * Without this the check only catches prose that sits on one line of code. A
+ * docstring copied out of the diff arrives as "Staged files with the
+ * most-changed first, each carrying its changed-line count" while the diff holds
+ * "+ * Staged files with the most-changed first, each carrying its changed-line"
+ * then "+ * count." - the same sentence, and no substring of it matches.
+ */
+export function flattenDiffForSearch(diff) {
+  return flattenForSearch(
+    String(diff || "")
+      .split("\n")
+      .map((line) =>
+        line
+          .replace(/^[+-](?![+-])/, "")
+          .replace(/^\s*(?:\/\/+|\/\*+|\*+\/?|#+|--)\s?/, " "),
+      )
+      .join("\n"),
+  );
+}
+
+/**
+ * True when the description lists the files that changed instead of saying what
+ * changed in them: "update package.json and pnpm-lock.yaml".
+ *
+ * A reader can already see the file list in `git show`. The subject exists to
+ * say what the edit did, so a description that survives only on filenames has
+ * said nothing. Anything left over after removing the paths and a leading
+ * generic verb counts as saying something.
+ */
+function namesOnlyFiles(description, stagedFiles) {
+  if (stagedFiles.length === 0) {
+    return false;
+  }
+
+  const paths = new Set();
+
+  for (const file of stagedFiles) {
+    for (const path of [file?.path, file?.previousPath]) {
+      if (!path) {
+        continue;
+      }
+
+      paths.add(path.toLocaleLowerCase());
+      paths.add((path.split(/[\\/]/).at(-1) || "").toLocaleLowerCase());
+    }
+  }
+
+  const remaining = tokenize(description)
+    .filter((token) => !paths.has(token))
+    .filter((token) => !GENERIC_BODY_WORDS.has(token))
+    .filter((token) => token.length > 2);
+
+  return (
+    remaining.length === 0 &&
+    tokenize(description).some((token) => paths.has(token))
+  );
+}
+
+function normalizeSubject(
+  value,
+  {
+    allowScope = true,
+    requiredType,
+    searchableDiff = "",
+    stagedFiles = [],
+  } = {},
+) {
   if (/[\r\n]/.test(value)) {
     throw new InvalidModelOutputError("subject must be one line.");
   }
@@ -242,7 +360,9 @@ function normalizeSubject(value, { allowScope = true, requiredType } = {}) {
 
   if (
     type === "test" &&
-    /^(?:add|create|write) (?:a )?tests?\b/i.test(description)
+    /^(?:add|change|create|extend|include|introduce|modify|update|write) (?:a |the )?tests?\b/i.test(
+      description,
+    )
   ) {
     throw new InvalidModelOutputError(
       'replace "add test for ..." with "test: cover <behavior>".',
@@ -256,6 +376,29 @@ function normalizeSubject(value, { allowScope = true, requiredType } = {}) {
   ) {
     throw new InvalidModelOutputError(
       "subject description is too vague to identify the staged change.",
+    );
+  }
+
+  const weakVerb = WEAK_VERB.exec(description);
+
+  if (weakVerb) {
+    throw new InvalidModelOutputError(
+      `"${weakVerb[0]}" does not say what changed; ` +
+        "name the concrete edit in the diff instead.",
+    );
+  }
+
+  if (namesOnlyFiles(description, stagedFiles)) {
+    throw new InvalidModelOutputError(
+      `"${description}" only lists the files that changed; ` +
+        "say what the change did to them.",
+    );
+  }
+
+  if (isCopiedFromDiff(description, searchableDiff)) {
+    throw new InvalidModelOutputError(
+      `"${description}" is text copied out of the diff, not a description ` +
+        "of it; say what the change does in your own words.",
     );
   }
 
@@ -305,6 +448,17 @@ function isRedundantBody(subject, body) {
     return true;
   }
 
+  // "Improve concurrency in the model test by adding a test ..." A line whose
+  // verb only announces an intention is padding, the same way it is in a
+  // subject, and it always wraps a change the subject already named.
+  if (
+    body
+      .split("\n")
+      .some((line) => WEAK_VERB.test(line.replace(/^[-*]\s*/, "")))
+  ) {
+    return true;
+  }
+
   const subjectMatch =
     /^(?:[a-z]+)(?:\((?<scope>[^)]+)\))?!?: (?<description>.+)$/i.exec(subject);
 
@@ -335,6 +489,13 @@ function isRedundantBody(subject, body) {
     /^(?:this (?:commit|change|update)\b|the .{0,80}\b(?:has|have|is|are|was|were)(?: been)?\b)/i.test(
       body,
     );
+
+  // A single line that repeats every word of the subject is that subject said
+  // at greater length; its extra words are connective tissue, not new facts.
+  // Real bodies list the other tasks in the diff, so they run to several lines.
+  if (subjectCoverage === 1 && !body.includes("\n")) {
+    return true;
+  }
 
   return (
     subjectCoverage >= 0.75 &&

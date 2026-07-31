@@ -6,6 +6,16 @@ import {
   normalizeCommitMessage,
 } from "../src/output.mjs";
 
+const evidence = {
+  repository: "desktop-app",
+  files: [{ status: "M", path: "app/Auth/components/SignInEl.tsx" }],
+  keyConcepts: [],
+  diff:
+    "@@ -81,7 +83,7 @@\n" +
+    "-\t<Translate id={Strings.LOGIN_NOW} defaultText='Sign In' />\n" +
+    "+\t<Translate id={'LOGIN_NOW'} defaultText='Sign In' />\n",
+};
+
 test("normalizes a structured Conventional Commit response", () => {
   const result = normalizeCommitMessage({
     subject: "Feat(Core): add local generation.",
@@ -195,4 +205,61 @@ test("wraps useful body text at 72 characters", () => {
 
   assert.ok(result.body.includes("\n"));
   assert.ok(result.body.split("\n").every((line) => line.length <= 72));
+});
+
+test("rejects a subject verb that states an intention instead of an edit", () => {
+  for (const description of [
+    "improve login button UI",
+    "enhance the sign in flow",
+    "optimize translate lookups",
+  ]) {
+    assert.throws(
+      () => normalizeCommitMessage({ subject: `feat: ${description}` }),
+      (error) =>
+        error instanceof InvalidModelOutputError &&
+        /does not say what changed/.test(error.message),
+    );
+  }
+});
+
+test("drops a body that only claims a benefit", () => {
+  const result = normalizeCommitMessage({
+    subject: "fix(cache): recover stale model downloads",
+    body: "This makes the cache easier to reason about for every contributor.",
+  });
+
+  assert.equal(result.body, "");
+});
+
+test("drops a body line that only announces an intention", () => {
+  const result = normalizeCommitMessage({
+    subject: "test: cover concurrent model downloads",
+    body:
+      "- Improve concurrency in model test by adding a test to cover " +
+      "multiple concurrent downloads.",
+  });
+
+  assert.equal(result.body, "");
+  assert.equal(result.message, "test: cover concurrent model downloads");
+});
+
+test("drops a one-line body that repeats every subject word", () => {
+  const result = normalizeCommitMessage({
+    subject: "ci(matrix): update Node.js version to 24",
+    body: "Update the Node.js version to 24 in the CI workflow matrix.",
+  });
+
+  assert.equal(result.body, "");
+});
+
+test("keeps a multi-line body that names other tasks", () => {
+  const result = normalizeCommitMessage({
+    subject: "fix(auth): reject expired refresh tokens",
+    body:
+      "- extract the token clock into its own module\n" +
+      "- drop the unused legacy session helper",
+  });
+
+  assert.match(result.body, /token clock/);
+  assert.match(result.body, /legacy session helper/);
 });

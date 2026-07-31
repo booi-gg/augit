@@ -31,6 +31,38 @@ test("builds a compact prompt with an explicit untrusted-data boundary", () => {
   assert.ok(Buffer.byteLength(prompt) < 5_000);
 });
 
+test("puts the most-changed file first in both the file list and the diff", () => {
+  const prompt = buildCommitPrompt({
+    ...context,
+    files: [
+      { status: "M", path: "package.json" },
+      { status: "M", path: "src/rewrite.js" },
+    ],
+    diff:
+      "diff --git a/package.json b/package.json\n" +
+      "@@ -1,3 +1,3 @@\n" +
+      '-  "version": "1.0.0"\n' +
+      '+  "version": "1.1.0"\n' +
+      "diff --git a/src/rewrite.js b/src/rewrite.js\n" +
+      "@@ -1,4 +1,4 @@\n" +
+      Array.from(
+        { length: 40 },
+        (_, index) => `+const value${index} = 1;`,
+      ).join("\n") +
+      "\n",
+  });
+
+  assert.match(
+    prompt,
+    /"path": "src\/rewrite\.js"[\s\S]*"path": "package\.json"/,
+    "file list must lead with the most-changed file",
+  );
+  assert.ok(
+    prompt.indexOf("a/src/rewrite.js") < prompt.indexOf("a/package.json"),
+    "diff must lead with the most-changed file",
+  );
+});
+
 test("defines the grammar-constrained response shape", () => {
   assert.deepEqual(Object.keys(COMMIT_OUTPUT_SCHEMA.properties), [
     "subject",
@@ -46,18 +78,18 @@ test("leaves length to the prompt so the grammar cannot cut a subject short", ()
 
   const prompt = buildCommitPrompt(context);
 
-  assert.match(prompt, /at most 72 characters/);
-  assert.match(prompt, /at most 400 characters/);
-  assert.match(prompt, /complete phrase that ends on its own/);
-  assert.match(prompt, /rewrite it shorter, do not cut it/);
+  assert.match(prompt, /Max 72 chars/);
+  assert.match(prompt, /Max 400 chars/);
+  assert.match(prompt, /Must be complete phrase/);
+  assert.match(prompt, /rewrite short, not cut/);
 });
 
 test("tells the model to demote secondary changes to the body", () => {
   const prompt = buildCommitPrompt(context);
 
-  assert.match(prompt, /single most important change/);
-  assert.match(prompt, /rank them and describe only the\n  top one/);
-  assert.match(prompt, /Never join two changes/);
+  assert.match(prompt, /Name single biggest change/);
+  assert.match(prompt, /rank, describe top one only/);
+  assert.match(prompt, /Never join two with "and"/);
 });
 
 test("asks regeneration to avoid recent proposals", () => {
@@ -76,7 +108,7 @@ test("builds a repair prompt from validation feedback", () => {
     "subject is not a Conventional Commit",
   );
 
-  assert.match(prompt, /previous answer was invalid/i);
+  assert.match(prompt, /previous answer invalid/i);
   assert.match(prompt, /not a Conventional Commit/);
 });
 
