@@ -308,6 +308,12 @@ function stagedPathNames(stagedFiles = []) {
  * fact that was free and leaves the reader to open the diff for the substance,
  * which is the whole thing the message existed to save them. "document pre-push
  * and validate scripts" costs the same characters and says it.
+ *
+ * Only a target written as a path counts, so the dot or the slash has to be
+ * there. A staged `config.mjs` otherwise turns "change config timeout from 30s
+ * to 60s" into a rejection, and that sentence names both sides of the edit -
+ * exactly what this check exists to ask for. The bare-name case, "update
+ * readme", has nothing else in it and `namesOnlyFiles` already refuses it.
  */
 export function namesFileAsObject(text, stagedFiles = []) {
   const match = CONTAINER_VERB.exec(
@@ -325,7 +331,7 @@ export function namesFileAsObject(text, stagedFiles = []) {
     .replace(/^[`'"([]+/, "")
     .replace(/[`'")\].,;:!?]+$/, "");
 
-  return stagedPathNames(stagedFiles).has(target);
+  return /[./]/.test(target) && stagedPathNames(stagedFiles).has(target);
 }
 
 function namesOnlyFiles(description, stagedFiles) {

@@ -224,20 +224,15 @@ ${
     : `- Never write scope in parentheses. Fold it into description.
 `
 }- Name changed behavior: what got replaced, moved, removed, guarded, renamed.
-  Never bare filename. Never "update files". Never "improve", "enhance",
-  "optimize", "refine", "polish", "tweak".
-- File is where edit happened, never the edit. Never "update <file>",
-  "change the <file> file to ...". Reader already has filename. Name what is
-  different inside it. Write "document pre-push and validate scripts", not
+  Never bare filename. Never "update files".
+- File is the place of the edit, never the edit. Never "update <file>". Name
+  what differs inside it: "document pre-push and validate scripts", not
   "update the README.md file to include new scripts".
-- Value, command, flag, path, version replaced: name both sides, old then new.
-  Write "change lint script from eslint to biome check", not "update lint
-  script". Both sides must appear in diff as "-" line and "+" line.
-- No room for both sides: name new value alone. Never drop to "update <thing>".
-- Use "keyConcepts" when they fit the change. Extracted from flags, test names,
-  headings, code structure.
-- Pack in as many key concepts as fit. Exact flags, tool names, module names
-  beat generic headings.
+- Replaced value, command, flag, path, version: name both sides, old then new,
+  both present in diff. "change lint script from eslint to biome check", not
+  "update lint script". No room: name new value alone, never "update <thing>".
+- Use "keyConcepts" that fit the change. Pack in as many as fit. Exact flags,
+  tool names, module names beat generic headings.
 - Specific verbs: prevent, preview, document, cover, extract, test. Not update,
   add, change.
 - Test-only change: name behavior covered. Never "add test for <title>".
@@ -257,9 +252,8 @@ BODY
 - Each line max ${MAX_BODY_LINE_LENGTH} chars, whole body max ${MAX_BODY_LENGTH} chars.
   Too long: compress every line, never delete a task.
 - Each line states a diff fact. Never reword the subject.
-- Same wording rules as subject: file never the object, replacement names both
-  sides, exact identifiers. Write "- run lint and test before push", not
-  "- update package.json to include 'pre-push' and 'validate' scripts".
+- Subject wording rules hold here: file never the object, replacement names
+  both sides. "- run lint and test before push", not "- update package.json".
 - No invented details. No benefit claims like "better reflects project purpose"
   or "improves user experience". Never repeat subject as line.
 
