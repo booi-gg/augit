@@ -66,6 +66,13 @@ const GENERIC_BODY_WORDS = new Set([
 // names such as better-sqlite3 and refine-cli out of it.
 export const WEAK_VERB =
   /\b(?:better|enhances?|improves?|optimi[sz]es?|polish(?:es)?|refines?|tweaks?)(?![-\w])/i;
+// Verbs that report a file was touched without saying what the touch did. Every
+// inflection is spelled out because a body line or a file summary arrives in
+// past tense where a subject may not. Verbs that really do act on the file -
+// add, remove, rename, move, split - are deliberately absent: for those the file
+// is the change.
+const CONTAINER_VERB =
+  /^(?:adjust|adjusts|adjusted|adjusting|amend|amends|amended|amending|change|changes|changed|changing|edit|edits|edited|editing|modify|modifies|modified|modifying|revise|revises|revised|revising|tweak|tweaks|tweaked|tweaking|update|updates|updated|updating)\s+(?:the\s+)?(?<target>[^\s,;:]+)/i;
 // Sentences that sell the change instead of stating it. A small model reaches
 // for these when it has nothing concrete left to say.
 export const BENEFIT_CLAIM =
@@ -143,6 +150,23 @@ export function normalizeCommitMessage(
   ) {
     body = "";
   } else {
+    // Dropped bodies above were padding, so losing them loses nothing. A line
+    // built on a filename is the opposite: it carries a task the subject had no
+    // room for, described as a file touch. Dropping it would drop the task, so
+    // the message is rejected instead and the reason goes back to the model,
+    // which keeps the task and names the edit.
+    const containerLine = body
+      .split("\n")
+      .find((line) => namesFileAsObject(line, evidence?.files || []));
+
+    if (containerLine) {
+      throw new InvalidModelOutputError(
+        `body line "${containerLine.replace(/^\s*[-*]\s*/, "")}" names the ` +
+          "file that was touched, not the change; say what is different " +
+          "inside it, and name both sides of anything that was replaced.",
+      );
+    }
+
     body = wrapBody(body);
   }
 
@@ -247,12 +271,13 @@ export function flattenDiffForSearch(diff) {
  * said nothing. Anything left over after removing the paths and a leading
  * generic verb counts as saying something.
  */
-function namesOnlyFiles(description, stagedFiles) {
-  if (stagedFiles.length === 0) {
-    return false;
-  }
-
-  const paths = new Set();
+/**
+ * Every way a staged file can be referred to: its path, its filename, and its
+ * filename without the extension, so that `README.md`, `docs/README.md` and
+ * "readme" all point at the same file.
+ */
+function stagedPathNames(stagedFiles = []) {
+  const names = new Set();
 
   for (const file of stagedFiles) {
     for (const path of [file?.path, file?.previousPath]) {
@@ -260,11 +285,55 @@ function namesOnlyFiles(description, stagedFiles) {
         continue;
       }
 
-      paths.add(path.toLocaleLowerCase());
-      paths.add((path.split(/[\\/]/).at(-1) || "").toLocaleLowerCase());
+      const lower = path.toLocaleLowerCase();
+      const base = lower.split(/[\\/]/).at(-1) || "";
+
+      names.add(lower);
+      names.add(base);
+      names.add(base.replace(/\.[a-z0-9]+$/, ""));
     }
   }
 
+  names.delete("");
+
+  return names;
+}
+
+/**
+ * True when the text says a staged file was worked on instead of saying what the
+ * work was: "update the README.md file to include new scripts".
+ *
+ * A path is where an edit happened, never what it did, and the reader already
+ * has the path from `git show`. A line built around it spends itself on the one
+ * fact that was free and leaves the reader to open the diff for the substance,
+ * which is the whole thing the message existed to save them. "document pre-push
+ * and validate scripts" costs the same characters and says it.
+ */
+export function namesFileAsObject(text, stagedFiles = []) {
+  const match = CONTAINER_VERB.exec(
+    String(text || "")
+      .replace(/^\s*[-*]\s*/, "")
+      .trim(),
+  );
+
+  if (!match) {
+    return false;
+  }
+
+  const target = match.groups.target
+    .toLocaleLowerCase()
+    .replace(/^[`'"([]+/, "")
+    .replace(/[`'")\].,;:!?]+$/, "");
+
+  return stagedPathNames(stagedFiles).has(target);
+}
+
+function namesOnlyFiles(description, stagedFiles) {
+  if (stagedFiles.length === 0) {
+    return false;
+  }
+
+  const paths = stagedPathNames(stagedFiles);
   const remaining = tokenize(description)
     .filter((token) => !paths.has(token))
     .filter((token) => !GENERIC_BODY_WORDS.has(token))
@@ -392,6 +461,14 @@ function normalizeSubject(
     throw new InvalidModelOutputError(
       `"${description}" only lists the files that changed; ` +
         "say what the change did to them.",
+    );
+  }
+
+  if (namesFileAsObject(description, stagedFiles)) {
+    throw new InvalidModelOutputError(
+      `"${description}" names the file that was touched, not the change; ` +
+        "say what is different inside it, and name both sides of anything " +
+        "that was replaced.",
     );
   }
 

@@ -9,6 +9,7 @@ import {
   flattenDiffForSearch,
   flattenForSearch,
   isCopiedFromDiff,
+  namesFileAsObject,
   WEAK_VERB,
 } from "./output.mjs";
 
@@ -164,6 +165,12 @@ RULES
   "functionality", "support". Those first words waste the sentence.
 - Name the concrete edit: what got added, removed, replaced, moved, renamed,
   guarded. Use exact identifiers, flags, option names from the diff.
+- File is where edit happened, never the edit. Never "update this file",
+  "change the config", "modify <filename>". Caller already has the path. Name
+  what is different inside it.
+- Value, command, flag, path, version replaced: give both sides, old then new,
+  exactly as the "-" and "+" lines show. Write "change lint script from
+  eslint . to biome check", not "update lint script".
 - Every word traces to a "+" or "-" line below. No line backs word: drop word.
 - Never guess from the filename. File named X need not be about X.
 - Never say "improve", "enhance", "optimize", "refine", "polish", "tweak",
@@ -318,6 +325,13 @@ export function findSummaryProblem(summary, { diff = "", path } = {}) {
 
   if (namesOnlyTheFile(summary, path)) {
     return "it names the file and a generic word, not what the edit did";
+  }
+
+  // These summaries become the body lines of the assembled fallback message, so
+  // a file-touch sentence has to be caught here too, while the file's whole diff
+  // is still in front of the model and the retry can read it again.
+  if (namesFileAsObject(summary, [{ path }])) {
+    return "it says the file was touched instead of what changed inside it";
   }
 
   return null;
