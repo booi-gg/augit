@@ -7,6 +7,7 @@ import {
   buildCommitPromptDetails,
   buildRepairPrompt,
   buildSummaryCommitPrompt,
+  promptInstructions,
 } from "./prompt.mjs";
 import {
   createNodeLlamaRuntime,
@@ -135,6 +136,8 @@ export async function generateCommit({
               evidence: {
                 diff: safeContext.diff,
                 files: safeContext.files,
+                filesTruncated:
+                  safeContext.filesTruncated || promptFilesTruncated,
                 keyConcepts,
                 repository: safeContext.repository,
               },
@@ -202,6 +205,8 @@ export async function generateCommit({
           evidence: {
             diff: safeContext.diff,
             files: safeContext.files,
+            filesTruncated: safeContext.filesTruncated || promptFilesTruncated,
+            instructions: promptInstructions(prompt),
             keyConcepts,
             repository: safeContext.repository,
           },

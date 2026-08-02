@@ -77,6 +77,28 @@ const CONTAINER_VERB =
 // for these when it has nothing concrete left to say.
 export const BENEFIT_CLAIM =
   /\b(?:user experience|easier to (?:\w+)|more (?:readable|maintainable|robust|intuitive|user-friendly)|better (?:reflects?|user|readability|experience)|improves? the\b|makes? (?:it|the \w+) (?:easier|better|clearer|simpler))/i;
+// Five words is longer than any phrase a real description shares with a rule
+// line by accident, and short enough to catch an example handed back as the
+// answer: "run lint and test before push" is exactly five once filler is
+// dropped.
+const INSTRUCTION_RUN_WORDS = 5;
+let cachedInstructionRuns = { runs: null, source: null };
+// A word counts as a path only when it is written as one. Without the suffix
+// list "config" and "1.5" become files the change never touched.
+const FILE_EXTENSION =
+  /\.(?:[cm]?[jt]sx?|py|rb|go|rs|java|kt|swift|mdx?|rst|adoc|ya?ml|json|toml|lock|sh|bash|zsh|css|scss|less|html|txt|xml|ini|cfg|conf|sql|gradle|properties)$/i;
+// Technologies whose names end in a file suffix. "bump node.js to 22" names a
+// runtime, not a file, and nothing in the repository will ever match it.
+const LIBRARY_NAMES = new Set([
+  "d3.js",
+  "express.js",
+  "next.js",
+  "node.js",
+  "nuxt.js",
+  "react.js",
+  "three.js",
+  "vue.js",
+]);
 const TOKEN_STOP_WORDS = new Set([
   "a",
   "an",
@@ -132,8 +154,15 @@ export function normalizeCommitMessage(
   }
 
   const searchableDiff = evidence ? flattenDiffForSearch(evidence.diff) : "";
+  const instructions = evidence?.instructions || "";
+  // A truncated list cannot say a file was not staged, only that it is not in
+  // the part that survived, so the unstaged-path check stands down rather than
+  // rejecting a message that names a real file.
+  const knownFiles = evidence?.filesTruncated ? [] : evidence?.files || [];
   const subject = normalizeSubject(output.subject, {
     allowScope,
+    instructions,
+    knownFiles,
     requiredType,
     searchableDiff,
     stagedFiles: evidence?.files || [],
@@ -146,7 +175,15 @@ export function normalizeCommitMessage(
   if (
     isRedundantBody(subject, body) ||
     BENEFIT_CLAIM.test(body) ||
-    body.split("\n").some((line) => isCopiedFromDiff(line, searchableDiff))
+    body
+      .split("\n")
+      .some(
+        (line) =>
+          isCopiedFromDiff(line, searchableDiff) ||
+          isCopiedFromInstructions(line, instructions) ||
+          hasUnfilledSlot(line) ||
+          namesUnstagedFile(line, knownFiles),
+      )
   ) {
     body = "";
   } else {
@@ -230,6 +267,130 @@ export function isCopiedFromDiff(text, searchableDiff) {
 
   // Short phrases collide with ordinary code by chance; a long one does not.
   return needle.length >= 16 && searchableDiff.includes(needle);
+}
+
+/**
+ * True when `text` still carries a slot from an example instead of the fact
+ * that belongs in it: "rename to <new-name>".
+ *
+ * Writing the examples with placeholders keeps the model from copying a
+ * plausible sentence out of them, but it does not stop it copying the
+ * placeholder, and that answer is worse than the one it replaced: "<new-name>"
+ * cannot be mistaken for a description of anything, yet it passes every check
+ * that asks whether the wording is grounded, because there is no wording in it.
+ * The word-run check cannot see it either - the copied fragment is two words.
+ */
+export function hasUnfilledSlot(text) {
+  return /<[^<>]{1,40}>/.test(String(text || ""));
+}
+
+/**
+ * True when `text` reuses a run of words from the prompt's own rules.
+ *
+ * The rules are the one text in the prompt the answer may never come from: a
+ * model that cannot satisfy them returns them instead, and the result reads like
+ * a commit message while describing nothing that was staged. Every phrase of
+ * "Many changes, rank, describe top one only" and "run lint and test before
+ * push" arrived that way, and the grounding checks let them through because both
+ * are fluent English about software.
+ *
+ * Matched on words rather than characters because the copy is rarely exact: the
+ * model drops a clause, swaps a colon for a comma, or lifts half of an example.
+ * `tokenize` removes the punctuation and filler that differ, so the run that
+ * survives is the wording itself.
+ */
+export function isCopiedFromInstructions(text, instructions) {
+  if (!instructions) {
+    return false;
+  }
+
+  const tokens = tokenize(String(text || "").replace(/^\s*[-*]\s*/, ""));
+
+  if (tokens.length < INSTRUCTION_RUN_WORDS) {
+    return false;
+  }
+
+  const runs = instructionRuns(instructions);
+
+  for (let at = 0; at + INSTRUCTION_RUN_WORDS <= tokens.length; at += 1) {
+    if (runs.has(wordRun(tokens, at))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Every run of five words in the rules, built once per prompt. The rules change
+// only between attempts, so one cached set serves every line of a message.
+function instructionRuns(instructions) {
+  if (cachedInstructionRuns.source === instructions) {
+    return cachedInstructionRuns.runs;
+  }
+
+  const tokens = tokenize(instructions);
+  const runs = new Set();
+
+  for (let at = 0; at + INSTRUCTION_RUN_WORDS <= tokens.length; at += 1) {
+    runs.add(wordRun(tokens, at));
+  }
+
+  cachedInstructionRuns = { runs, source: instructions };
+
+  return runs;
+}
+
+function wordRun(tokens, at) {
+  return tokens.slice(at, at + INSTRUCTION_RUN_WORDS).join(" ");
+}
+
+/**
+ * The first file the text names that is not staged, or "" when every file it
+ * names was.
+ *
+ * A path in a message is a checkable claim, and it is the one hallucination that
+ * costs the reader the most: `git show` opens on a file the message never
+ * mentions. The subject that started this check, "docs: update README.md", was
+ * written for a change with no README in it - the model had lifted the filename
+ * out of an example in its own instructions. Existing checks could not see it
+ * because they ask what the description does with a staged path, and this path
+ * was not staged at all.
+ */
+export function namesUnstagedFile(text, stagedFiles = []) {
+  if (stagedFiles.length === 0) {
+    return "";
+  }
+
+  const names = stagedPathNames(stagedFiles);
+  const paths = [...names];
+
+  for (const word of String(text || "").split(/\s+/)) {
+    const mention = word
+      .toLocaleLowerCase()
+      .replace(/^[`'"([{<*-]+/, "")
+      .replace(/[`'")\]}>.,;:!?]+$/, "");
+
+    if (
+      !mention ||
+      LIBRARY_NAMES.has(mention) ||
+      (!mention.includes("/") && !FILE_EXTENSION.test(mention)) ||
+      names.has(mention)
+    ) {
+      continue;
+    }
+
+    // A directory is a real reference to the change: "src/output" covers every
+    // staged file under it, and the model was given the paths to say so.
+    const covered = paths.some(
+      (path) => path.endsWith(`/${mention}`) || path.startsWith(`${mention}/`),
+    );
+
+    if (!covered) {
+      return mention;
+    }
+  }
+
+  return "";
 }
 
 export function flattenForSearch(value) {
@@ -355,6 +516,8 @@ function normalizeSubject(
   value,
   {
     allowScope = true,
+    instructions = "",
+    knownFiles = [],
     requiredType,
     searchableDiff = "",
     stagedFiles = [],
@@ -482,6 +645,29 @@ function normalizeSubject(
     throw new InvalidModelOutputError(
       `"${description}" is text copied out of the diff, not a description ` +
         "of it; say what the change does in your own words.",
+    );
+  }
+
+  if (hasUnfilledSlot(description)) {
+    throw new InvalidModelOutputError(
+      `"${description}" leaves a <placeholder> from an example unfilled; ` +
+        "replace it with the identifier, value or behavior from the diff.",
+    );
+  }
+
+  if (isCopiedFromInstructions(description, instructions)) {
+    throw new InvalidModelOutputError(
+      `"${description}" is wording copied out of these rules, not a ` +
+        "description of the staged change; describe the diff instead.",
+    );
+  }
+
+  const unstagedFile = namesUnstagedFile(description, knownFiles);
+
+  if (unstagedFile) {
+    throw new InvalidModelOutputError(
+      `"${unstagedFile}" is not one of the staged files; describe a file ` +
+        "that the change actually touched.",
     );
   }
 

@@ -8,10 +8,13 @@ import {
   BENEFIT_CLAIM,
   flattenDiffForSearch,
   flattenForSearch,
+  hasUnfilledSlot,
   isCopiedFromDiff,
+  isCopiedFromInstructions,
   namesFileAsObject,
   WEAK_VERB,
 } from "./output.mjs";
+import { promptInstructions } from "./prompt.mjs";
 
 // One file at a time, so the whole of that file's diff fits. This is the size
 // the model handles reliably; the failure this pass exists to remove came from
@@ -169,8 +172,10 @@ RULES
   "change the config", "modify <filename>". Caller already has the path. Name
   what is different inside it.
 - Value, command, flag, path, version replaced: give both sides, old then new,
-  exactly as the "-" and "+" lines show. Write "change lint script from
-  eslint . to biome check", not "update lint script".
+  exactly as the "-" and "+" lines show. Write "<verb> <thing> from <old> to
+  <new>", not "update <thing>".
+- These rules are not evidence. Never copy a phrase out of them. <angle
+  brackets> mark a slot to fill, never words to write.
 - Every word traces to a "+" or "-" line below. No line backs word: drop word.
 - Never guess from the filename. File named X need not be about X.
 - Never say "improve", "enhance", "optimize", "refine", "polish", "tweak",
@@ -245,6 +250,7 @@ export async function summarizeChangedFiles({
 
       const problem = findSummaryProblem(candidate, {
         diff: unit.diff,
+        instructions: promptInstructions(basePrompt),
         path: unit.path,
       });
 
@@ -282,7 +288,10 @@ Read the "+" and "-" lines again. Say what they do. JSON object only.`;
  * failures the final message is checked for; a summary earns no exemption just
  * because it is an intermediate value.
  */
-export function findSummaryProblem(summary, { diff = "", path } = {}) {
+export function findSummaryProblem(
+  summary,
+  { diff = "", instructions = "", path } = {},
+) {
   if (!summary) {
     return "empty";
   }
@@ -321,6 +330,17 @@ export function findSummaryProblem(summary, { diff = "", path } = {}) {
 
   if (isCopiedFromDiff(summary, flattenDiffForSearch(diff))) {
     return "it is text copied out of the diff, not a description of it";
+  }
+
+  if (hasUnfilledSlot(summary)) {
+    return "it leaves a <placeholder> from an example unfilled";
+  }
+
+  // A summary is believed by the ranking pass, so a rule quoted back here does
+  // not stay an odd sentence about one file: it becomes the subject of the
+  // commit message, describing an edit no file received.
+  if (isCopiedFromInstructions(summary, instructions)) {
+    return "it is wording copied out of these rules, not a description of the edit";
   }
 
   if (namesOnlyTheFile(summary, path)) {
