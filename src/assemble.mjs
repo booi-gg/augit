@@ -2,7 +2,7 @@
  * Building a commit message from validated per-file summaries, without asking a
  * model to rank anything.
  *
- * Ranking is the one part of this job a 1.5B model fails at consistently: given
+ * Ranking is the one part of this job models can fail at consistently: given
  * a list sorted biggest-first with the line counts attached, it still headlines a
  * two-line spinner tweak. It is also the one part that needs no language ability
  * at all - the churn counts are already measured, so the order is arithmetic.

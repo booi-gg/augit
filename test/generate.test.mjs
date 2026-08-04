@@ -23,11 +23,11 @@ function fixtureContext() {
   };
 }
 
-test("runs collection, model preparation, inference, and normalization", async () => {
+test("runs collection, API inference, and normalization", async () => {
   const calls = [];
   const runtime = {
-    async generate({ modelPath, prompt }) {
-      calls.push(["runtime", modelPath, prompt]);
+    async generate({ prompt }) {
+      calls.push(["runtime", prompt]);
       return {
         subject: "feat(core): return a default display name",
         body: "",
@@ -51,20 +51,16 @@ test("runs collection, model preparation, inference, and normalization", async (
       calls.push(["collector", cwd]);
       return fixtureContext();
     },
-    ensureModel: async () => {
-      calls.push(["model"]);
-      return { path: "/cache/model.gguf", downloaded: false };
-    },
     runtime,
   });
 
   assert.equal(result.message, "feat(core): return a default display name");
   assert.deepEqual(
     calls.map((call) => call[0]),
-    ["collector", "model", "runtime"],
+    ["collector", "runtime"],
   );
   assert.equal(calls[0][1], "/repo");
-  assert.match(calls[2][2], /stagedFiles/);
+  assert.match(calls[1][1], /stagedFiles/);
   assert.deepEqual(result.usage, {
     generations: 1,
     tokens: {
@@ -91,7 +87,6 @@ test("retries one invalid model response with validation feedback", async () => 
 
   const result = await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     runtime,
   });
 
@@ -103,7 +98,6 @@ test("retries one invalid model response with validation feedback", async () => 
 test("keeps a body that the staged diff supports", async () => {
   const result = await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     runtime: {
       async generate() {
         return {
@@ -121,7 +115,6 @@ test("drops a hollow body rather than retrying for a new one", async () => {
   const prompts = [];
   const result = await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     runtime: {
       async generate({ prompt }) {
         prompts.push(prompt);
@@ -141,7 +134,6 @@ test("retries a subject copied verbatim out of the diff", async () => {
   const prompts = [];
   const result = await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     runtime: {
       async generate({ prompt }) {
         prompts.push(prompt);
@@ -179,7 +171,6 @@ test("regeneration rejects and repairs a repeated proposal", async () => {
 
   const result = await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     previousMessages: [previousMessage],
     runtime,
   });
@@ -202,7 +193,6 @@ test("uses deterministic sampling for a fresh generation", async () => {
 
   await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     runtime,
   });
 
@@ -228,7 +218,6 @@ test("diversifies sampling when regenerating or repairing", async () => {
 
   await generateCommit({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     previousMessages: [previousMessage],
     runtime,
   });
@@ -253,7 +242,6 @@ test("strips the scope from the result when scopes are disabled", async () => {
   const result = await generateCommit({
     allowScope: false,
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     runtime,
   });
 
@@ -264,7 +252,6 @@ test("disposes a runtime that it creates", async () => {
   let disposed = 0;
   const message = await generateCommitMessage({
     collector: async () => fixtureContext(),
-    ensureModel: async () => ({ path: "/cache/model.gguf" }),
     createRuntime: () => ({
       async generate() {
         return { subject: "fix: guard a missing profile", body: "" };

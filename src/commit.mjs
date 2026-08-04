@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG } from "./config.mjs";
+import { DEFAULT_CONFIG, resolveAgentConfig } from "./config.mjs";
 import { generateCommitMessage } from "./generate.mjs";
 import {
   commitStagedChanges,
@@ -16,11 +16,7 @@ import {
   SPINNER_FRAMES,
 } from "./interactive.mjs";
 import { InvalidModelOutputError } from "./output.mjs";
-import { createNodeLlamaRuntime } from "./runtime.mjs";
-
-const noProgress = () => {};
-
-noProgress.end = () => {};
+import { createAgentRuntime } from "./runtime.mjs";
 
 const SPINNER_INTERVAL_MS = 80;
 const MAX_GENERATION_ATTEMPTS = 3;
@@ -143,13 +139,13 @@ export async function runCommitWorkflow(
   {
     commitChanges = commitStagedChanges,
     config = DEFAULT_CONFIG,
-    createRuntime = createNodeLlamaRuntime,
+    createRuntime = createAgentRuntime,
     cwd = process.cwd(),
     generate = generateCommitMessage,
     hasChanges = hasWorkingTreeChanges,
-    modelProgress = noProgress,
     promptGeneratedCommit = promptForGeneratedCommit,
     promptNoStagedChanges = promptForNoStagedChanges,
+    resolveConfig = resolveAgentConfig,
     stageChanges = stageAllChanges,
   } = {},
 ) {
@@ -178,13 +174,12 @@ export async function runCommitWorkflow(
   const spinner = createStatusSpinner(io);
 
   try {
-    runtime = await createRuntime();
+    runtime = await createRuntime(resolveConfig(config));
     runtimeForUsage = runtime;
 
     const generationOptions = {
       allowScope: config["show-scope"],
       cwd,
-      onModelProgress: modelProgress,
       onStatus({ phase }) {
         if (phase === lastPhase) {
           return;
@@ -196,16 +191,15 @@ export async function runCommitWorkflow(
           if (!suppressStatusAnnouncements) {
             io.stderr.write("Checking staged changes\n");
           }
-        } else if (phase === "loading-model") {
+        } else if (phase === "preparing-agent") {
           if (!suppressStatusAnnouncements) {
             io.stderr.write(
               `${formatChangesStatus(true, { output: io.stderr })}\n`,
             );
           }
 
-          spinner.start("Loading local model: ");
+          spinner.start("Preparing agent API: ");
         } else if (phase === "generating") {
-          modelProgress.end?.();
           spinner.start("Generating commit message ", { accent: true });
         }
       },
@@ -290,7 +284,6 @@ export async function runCommitWorkflow(
     }
 
     while (true) {
-      modelProgress.end?.();
       spinner.stop();
 
       let action;
@@ -427,48 +420,21 @@ export function formatGenerationUsage(usage) {
     return "";
   }
 
-  const lines = [
-    "Generation usage",
+  const lines = ["Generation usage"];
+
+  if (usage.provider || usage.model) {
+    const provider = formatAgentProvider(usage.provider);
+    const model = usage.model ? ` (${usage.model})` : "";
+
+    lines.push(`  Agent: ${provider}${model}`);
+  }
+
+  lines.push(
     `  Tokens: ${formatInteger(usage.tokens.total)} total (${formatInteger(usage.tokens.input)} input, ${formatInteger(usage.tokens.output)} output)`,
-  ];
+  );
 
   if (Number.isFinite(usage.wallTimeMs)) {
     lines.push(`  Wall time: ${formatDuration(usage.wallTimeMs)}`);
-  }
-
-  const cpuDetails = [];
-
-  if (usage.cpu?.model) {
-    cpuDetails.push(usage.cpu.model);
-  }
-
-  if (Number.isFinite(usage.cpu?.timeMs)) {
-    cpuDetails.push(`${formatDuration(usage.cpu.timeMs)} time`);
-  }
-
-  if (Number.isFinite(usage.cpu?.memoryBytes)) {
-    cpuDetails.push(`${formatBytes(usage.cpu.memoryBytes)} allocated`);
-  }
-
-  if (cpuDetails.length > 0) {
-    lines.push(`  CPU: ${cpuDetails.join(", ")}`);
-  }
-
-  const backend = usage.gpu?.backend;
-
-  if (backend === "cpu") {
-    lines.push("  GPU: not used (CPU backend)");
-  } else if (backend && backend !== "unknown") {
-    const gpuDetails = [
-      formatGpuBackend(backend),
-      ...(usage.gpu.devices || []),
-    ];
-
-    if (Number.isFinite(usage.gpu.memoryBytes)) {
-      gpuDetails.push(`${formatBytes(usage.gpu.memoryBytes)} allocated`);
-    }
-
-    lines.push(`  GPU: ${gpuDetails.join(", ")}`);
   }
 
   return `${lines.join("\n")}\n`;
@@ -490,22 +456,6 @@ function validateGitArgs(args) {
   }
 }
 
-function formatBytes(bytes) {
-  if (bytes < 1_000) {
-    return `${Math.floor(bytes)} B`;
-  }
-
-  const units = ["KB", "MB", "GB", "TB"];
-  const unitIndex = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1_000)) - 1,
-    units.length - 1,
-  );
-  const value = bytes / 1_000 ** (unitIndex + 1);
-  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
-
-  return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
-}
-
 function formatDuration(milliseconds) {
   if (milliseconds < 1_000) {
     return `${Math.round(milliseconds)} ms`;
@@ -514,13 +464,16 @@ function formatDuration(milliseconds) {
   return `${(milliseconds / 1_000).toFixed(2)} s`;
 }
 
-function formatGpuBackend(backend) {
+function formatAgentProvider(provider) {
   return (
     {
-      cuda: "CUDA",
-      metal: "Metal",
-      vulkan: "Vulkan",
-    }[backend] || backend
+      claude: "Claude",
+      codex: "Codex",
+      deepseek: "DeepSeek",
+      openai: "OpenAI",
+    }[provider] ||
+    provider ||
+    "API"
   );
 }
 

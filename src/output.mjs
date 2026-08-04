@@ -73,7 +73,7 @@ export const WEAK_VERB =
 // is the change.
 const CONTAINER_VERB =
   /^(?:adjust|adjusts|adjusted|adjusting|amend|amends|amended|amending|change|changes|changed|changing|edit|edits|edited|editing|modify|modifies|modified|modifying|revise|revises|revised|revising|tweak|tweaks|tweaked|tweaking|update|updates|updated|updating)\s+(?:the\s+)?(?<target>[^\s,;:]+)/i;
-// Sentences that sell the change instead of stating it. A small model reaches
+// Sentences that sell the change instead of stating it. A model reaches
 // for these when it has nothing concrete left to say.
 export const BENEFIT_CLAIM =
   /\b(?:user experience|easier to (?:\w+)|more (?:readable|maintainable|robust|intuitive|user-friendly)|better (?:reflects?|user|readability|experience)|improves? the\b|makes? (?:it|the \w+) (?:easier|better|clearer|simpler))/i;
@@ -253,7 +253,7 @@ function parseOutput(value) {
  * lifted straight out of it.
  *
  * A staged diff often carries prose that looks like an answer: a commit message
- * in a test fixture, a heading in a README, a docstring. A small model will
+ * in a test fixture, a heading in a README, a docstring. A model can
  * return that prose verbatim, and every word of it is "grounded" because it
  * really is in the diff, so grounding alone cannot see the problem. Describing
  * a change and quoting it are different acts.
