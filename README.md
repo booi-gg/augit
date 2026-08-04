@@ -116,6 +116,18 @@ The interactive review offers **Commit**, **Generate again**, and **Cancel**.
 Regeneration reuses the same API runtime and asks for a proposal different from
 the last three results.
 
+### Remove a model downloaded by an earlier version
+
+Augi no longer downloads or runs a local model. After upgrading from an older
+version, reclaim the model's disk space with:
+
+```sh
+augi --clear-model
+```
+
+The command also removes an interrupted download and its verification metadata.
+It respects `AUGI_CACHE_DIR` when the former cache location was overridden.
+
 ## Configuration
 
 | Key                  | Default     | Effect                                                                             |
