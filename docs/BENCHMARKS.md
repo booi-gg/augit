@@ -1,7 +1,7 @@
 # Benchmarks
 
 The benchmark suite compares supported API providers and models against the
-same fixed Augi prompts and validators.
+same fixed Augit prompts and validators.
 
 ## Dataset
 

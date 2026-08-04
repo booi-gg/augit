@@ -19,7 +19,7 @@ const INSTRUCTIONS = promptInstructions(
     diff: DIFF,
     files: FILES,
     recentSubjects: [],
-    repository: "augi",
+    repository: "augit",
   }),
 );
 const EVIDENCE = {
@@ -27,7 +27,7 @@ const EVIDENCE = {
   files: FILES,
   instructions: INSTRUCTIONS,
   keyConcepts: [],
-  repository: "augi",
+  repository: "augit",
 };
 
 describe("isCopiedFromInstructions", () => {

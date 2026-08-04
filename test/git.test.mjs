@@ -120,7 +120,7 @@ test("forwards extra arguments to git commit", async (t) => {
 
   const log = await git(directory, "log", "-1", "--format=%B");
 
-  assert.match(log.stdout, /Signed-off-by: Augi Test <augi@example\.test>/);
+  assert.match(log.stdout, /Signed-off-by: Augit Test <augit@example\.test>/);
 });
 
 test("validates forwarded Git commit arguments", async () => {
@@ -178,7 +178,7 @@ test("omits binary payloads from the staged prompt input", async (t) => {
     directory,
     "config",
     "diff.leak.textconv",
-    "augi-textconv-must-not-run",
+    "augit-textconv-must-not-run",
   );
   await git(directory, "add", ".gitattributes", "fixture.bin");
 

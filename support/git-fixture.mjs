@@ -7,12 +7,12 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 export async function createRepository(t, { initialCommit = true } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "augi-git-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augit-git-test-"));
 
   t.after(() => rm(directory, { recursive: true, force: true }));
   await git(directory, "init", "--quiet");
-  await git(directory, "config", "user.name", "Augi Test");
-  await git(directory, "config", "user.email", "augi@example.test");
+  await git(directory, "config", "user.name", "Augit Test");
+  await git(directory, "config", "user.email", "augit@example.test");
 
   if (initialCommit) {
     await writeFile(join(directory, "README.md"), "# fixture\n");

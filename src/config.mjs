@@ -37,7 +37,7 @@ const CONFIG_SCHEMA = Object.freeze({
   },
   "auto-stage-all": {
     description:
-      "Stage all changes automatically instead of prompting when augi commit finds none staged.",
+      "Stage all changes automatically instead of prompting when augit commit finds none staged.",
     setExample: "true",
     type: "boolean",
   },
@@ -55,15 +55,15 @@ const CONFIG_SCHEMA = Object.freeze({
   },
 });
 
-export const configHelp = `augi config
+export const configHelp = `augit config
 
-Get or set augi's persisted configuration.
+Get or set augit's persisted configuration.
 
 Usage:
-  augi config
-  augi config list
-  augi config get <key>
-  augi config set <key> <value>
+  augit config
+  augit config list
+  augit config get <key>
+  augit config set <key> <value>
 
 Keys:
 ${Object.entries(CONFIG_SCHEMA)
@@ -87,19 +87,19 @@ export function getConfigDirectory({
   home = homedir(),
   platform = process.platform,
 } = {}) {
-  if (env.AUGI_CONFIG_DIR) {
-    return env.AUGI_CONFIG_DIR;
+  if (env.AUGIT_CONFIG_DIR) {
+    return env.AUGIT_CONFIG_DIR;
   }
 
   if (platform === "darwin") {
-    return join(home, "Library", "Preferences", "augi");
+    return join(home, "Library", "Preferences", "augit");
   }
 
   if (platform === "win32") {
-    return join(env.APPDATA || join(home, "AppData", "Roaming"), "augi");
+    return join(env.APPDATA || join(home, "AppData", "Roaming"), "augit");
   }
 
-  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "augi");
+  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "augit");
 }
 
 export function getConfigFilePath(options = {}) {
@@ -125,7 +125,9 @@ export async function loadConfig(options = {}) {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`Failed to parse augi config at ${path}: ${error.message}`);
+    throw new Error(
+      `Failed to parse augit config at ${path}: ${error.message}`,
+    );
   }
 
   const config = { ...DEFAULT_CONFIG };
@@ -179,7 +181,7 @@ function parseConfigValue(key, rawValue) {
     }
 
     throw new ConfigCommandUsageError(
-      `Invalid value for ${key}: ${rawValue}. Expected one of: ${definition.values.join(", ")}. Fix it with, for example: \`augi config set ${key} ${definition.setExample}\`.`,
+      `Invalid value for ${key}: ${rawValue}. Expected one of: ${definition.values.join(", ")}. Fix it with, for example: \`augit config set ${key} ${definition.setExample}\`.`,
     );
   }
 
@@ -239,11 +241,11 @@ function formatConfigOverview(config) {
   const updateCommands = Object.entries(CONFIG_SCHEMA)
     .map(
       ([key, definition]) =>
-        `  augi config set ${key} ${definition.setExample}`,
+        `  augit config set ${key} ${definition.setExample}`,
     )
     .join("\n");
 
-  return `Current configuration:\n${formatConfigLines(config, "  ")}\n\nUpdate values:\n${updateCommands}\n\nUse \`augi config get <key>\` to read one value or \`augi config --help\` for details.\n`;
+  return `Current configuration:\n${formatConfigLines(config, "  ")}\n\nUpdate values:\n${updateCommands}\n\nUse \`augit config get <key>\` to read one value or \`augit config --help\` for details.\n`;
 }
 
 function isStoredValueValid(value, definition) {
@@ -303,7 +305,7 @@ export async function runConfigCommand(
     const [key] = rest;
 
     if (!key) {
-      throw new ConfigCommandUsageError("Usage: augi config get <key>");
+      throw new ConfigCommandUsageError("Usage: augit config get <key>");
     }
 
     assertKnownKey(key);
@@ -318,7 +320,9 @@ export async function runConfigCommand(
     const [key, rawValue] = rest;
 
     if (!key || rawValue === undefined) {
-      throw new ConfigCommandUsageError("Usage: augi config set <key> <value>");
+      throw new ConfigCommandUsageError(
+        "Usage: augit config set <key> <value>",
+      );
     }
 
     assertKnownKey(key);
@@ -334,6 +338,6 @@ export async function runConfigCommand(
   }
 
   throw new ConfigCommandUsageError(
-    `Unknown config subcommand: ${subcommand}. Run augi config --help.`,
+    `Unknown config subcommand: ${subcommand}. Run augit config --help.`,
   );
 }

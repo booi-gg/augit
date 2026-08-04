@@ -23,13 +23,13 @@ import {
 } from "./interactive.mjs";
 import { createAgentRuntime } from "./runtime.mjs";
 
-const help = `augi
+const help = `augit
 
 Generate concise Git commit messages with a configured agent API.
 
 Usage:
-  augi [options]
-  augi commit [options] [-- GIT_ARGS...]
+  augit [options]
+  augit commit [options] [-- GIT_ARGS...]
 
 Commands:
   commit                Draft, review, and commit staged changes
@@ -39,17 +39,17 @@ Options:
   -h, --help            Show help
   -v, --version         Show version
 
-Run augi commit --help for staging, automation, and Git passthrough options.
-Run augi config --help for the list of configurable keys.
-Running augi with no arguments prints this help.
+Run augit commit --help for staging, automation, and Git passthrough options.
+Run augit config --help for the list of configurable keys.
+Running augit with no arguments prints this help.
 `;
 
-const commitHelp = `augi commit
+const commitHelp = `augit commit
 
 Draft a Conventional Commit message from staged changes, review it, and commit.
 
 Usage:
-  augi commit [options] [-- GIT_ARGS...]
+  augit commit [options] [-- GIT_ARGS...]
 
 Options:
   -a, --all             Stage all changes with git add --all
@@ -57,8 +57,8 @@ Options:
   -h, --help            Show commit command help
 
 Arguments after -- are forwarded to git commit:
-  augi commit -- --no-verify
-  augi commit --all --yes -- --signoff
+  augit commit -- --no-verify
+  augit commit --all --yes -- --signoff
 `;
 
 export { extractKeyConcepts, inferRequiredType } from "./classify.mjs";
@@ -171,7 +171,7 @@ export async function run(
       return 0;
     }
   } else {
-    io.stderr.write(`Unknown option: ${args.join(" ")}. Run augi --help.\n`);
+    io.stderr.write(`Unknown option: ${args.join(" ")}. Run augit --help.\n`);
     return 2;
   }
 

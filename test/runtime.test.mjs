@@ -48,7 +48,7 @@ test("resolves explicit providers and only detects unambiguous keys", () => {
     (error) =>
       error instanceof AgentConfigurationError &&
       /Cannot safely determine/.test(error.message) &&
-      /augi config set AGENT_PROVIDER openai/.test(error.message),
+      /augit config set AGENT_PROVIDER openai/.test(error.message),
   );
 });
 
@@ -59,13 +59,13 @@ test("requires an API key and a supported provider", () => {
       error instanceof AgentConfigurationError &&
       error.code === "AGENT_CONFIGURATION_INVALID" &&
       /AGENT_API_KEY/.test(error.message) &&
-      /augi config set AGENT_API_KEY/.test(error.message),
+      /augit config set AGENT_API_KEY/.test(error.message),
   );
   assert.throws(
     () => createAgentRuntime({ apiKey: "fixture", provider: "ollama" }),
     (error) =>
       /Unsupported AGENT_PROVIDER/.test(error.message) &&
-      /augi config set AGENT_PROVIDER openai/.test(error.message),
+      /augit config set AGENT_PROVIDER openai/.test(error.message),
   );
   assert.throws(
     () =>
@@ -76,7 +76,7 @@ test("requires an API key and a supported provider", () => {
       }),
     (error) =>
       /AGENT_MODEL/.test(error.message) &&
-      /augi config set AGENT_MODEL ""/.test(error.message),
+      /augit config set AGENT_MODEL ""/.test(error.message),
   );
 });
 
@@ -256,8 +256,8 @@ test("reports provider errors without exposing the API key", async () => {
     assert.ok(error instanceof AgentApiError);
     assert.equal(error.status, 401);
     assert.match(error.message, /Claude API request failed \(401\)/);
-    assert.match(error.message, /augi config set AGENT_PROVIDER claude/);
-    assert.match(error.message, /augi config set AGENT_API_KEY/);
+    assert.match(error.message, /augit config set AGENT_PROVIDER claude/);
+    assert.match(error.message, /augit config set AGENT_API_KEY/);
     assert.doesNotMatch(error.message, new RegExp(apiKey));
     return true;
   });
@@ -285,7 +285,7 @@ test("turns an unavailable model response into model setup instructions", async 
     assert.ok(error instanceof AgentApiError);
     assert.equal(error.status, 404);
     assert.match(error.message, /model may not exist/);
-    assert.match(error.message, /augi config set AGENT_MODEL ""/);
+    assert.match(error.message, /augit config set AGENT_MODEL ""/);
     assert.doesNotMatch(error.message, new RegExp(apiKey));
     return true;
   });

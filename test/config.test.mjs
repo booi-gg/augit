@@ -27,7 +27,7 @@ function fixtureIo() {
 test("uses the platform config directory", () => {
   assert.equal(
     getConfigDirectory({ env: {}, home: "/Users/test", platform: "darwin" }),
-    "/Users/test/Library/Preferences/augi",
+    "/Users/test/Library/Preferences/augit",
   );
   assert.equal(
     getConfigDirectory({
@@ -35,7 +35,7 @@ test("uses the platform config directory", () => {
       home: "/home/test",
       platform: "linux",
     }),
-    "/etc/xdg/test/augi",
+    "/etc/xdg/test/augit",
   );
   assert.equal(
     getConfigDirectory({
@@ -43,11 +43,11 @@ test("uses the platform config directory", () => {
       home: "C:\\Users\\test",
       platform: "win32",
     }),
-    join("C:\\Users\\test\\AppData\\Roaming", "augi"),
+    join("C:\\Users\\test\\AppData\\Roaming", "augit"),
   );
   assert.equal(
     getConfigDirectory({
-      env: { AUGI_CONFIG_DIR: "/custom/config" },
+      env: { AUGIT_CONFIG_DIR: "/custom/config" },
       home: "/Users/test",
       platform: "darwin",
     }),
@@ -56,14 +56,14 @@ test("uses the platform config directory", () => {
 });
 
 test("loads defaults when no config file exists", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "augi-config-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augit-config-test-"));
   const path = join(directory, "config.json");
 
   assert.deepEqual(await loadConfig({ path }), { ...DEFAULT_CONFIG });
 });
 
 test("merges a saved config over the defaults", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "augi-config-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augit-config-test-"));
   const path = join(directory, "nested", "config.json");
 
   await saveConfig({ "auto-stage-all": true }, { path });
@@ -83,12 +83,12 @@ test("merges a saved config over the defaults", async () => {
 });
 
 test("rejects a malformed config file", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "augi-config-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "augit-config-test-"));
   const path = join(directory, "config.json");
 
   await writeFile(path, "{ not json", "utf8");
 
-  await assert.rejects(loadConfig({ path }), /Failed to parse augi config/);
+  await assert.rejects(loadConfig({ path }), /Failed to parse augit config/);
 });
 
 test("config list prints every known key", async () => {
@@ -226,7 +226,7 @@ test("config validates and normalizes the agent provider", async () => {
     (error) =>
       /Expected one of: auto, openai, codex, claude, deepseek/.test(
         error.message,
-      ) && /augi config set AGENT_PROVIDER openai/.test(error.message),
+      ) && /augit config set AGENT_PROVIDER openai/.test(error.message),
   );
 });
 
@@ -336,7 +336,7 @@ test("config shows every value and update command with no subcommand", async () 
     "show-scope",
     "show-usage-summary",
   ]) {
-    assert.match(state.stdout, new RegExp(`augi config set ${key} `));
+    assert.match(state.stdout, new RegExp(`augit config set ${key} `));
   }
 });
 

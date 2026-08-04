@@ -1,6 +1,6 @@
 {
-  "name": "augi-commit",
-  "version": "0.1.17",
+  "name": "@booi-gg/augit",
+  "version": "0.1.0",
   "description": "Generate concise Git commit messages with your preferred agent API.",
   "keywords": [
     "commit",
@@ -14,17 +14,17 @@
   "author": "Booi <booimangang@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/booi-gg/augi.git"
+    "url": "git+https://github.com/booi-gg/augit.git"
   },
-  "bugs": "https://github.com/booi-gg/augi/issues",
-  "homepage": "https://github.com/booi-gg/augi#readme",
+  "bugs": "https://github.com/booi-gg/augit/issues",
+  "homepage": "https://github.com/booi-gg/augit#readme",
   "type": "module",
   "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "augi": "./bin/cli.mjs"
+    "augit": "./bin/cli.mjs"
   },
   "exports": {
     ".": "./src/index.mjs"
