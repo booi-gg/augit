@@ -1,27 +1,57 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 const CONFIG_FILENAME = "config.json";
 
 export const DEFAULT_CONFIG = Object.freeze({
+  AGENT_API_KEY: "",
+  AGENT_MODEL: "",
+  AGENT_PROVIDER: "auto",
   "auto-stage-all": false,
   "show-scope": true,
   "show-usage-summary": false,
 });
 
 const CONFIG_SCHEMA = Object.freeze({
+  AGENT_API_KEY: {
+    description:
+      "API key for OpenAI/Codex, Claude, or DeepSeek. The value is always hidden in command output.",
+    secret: true,
+    setExample: '"$OPENAI_API_KEY"',
+    type: "string",
+  },
+  AGENT_MODEL: {
+    defaultLabel: "<provider default>",
+    description:
+      "Provider model ID. Leave empty to use the provider's default model.",
+    setExample: "gpt-5-mini",
+    type: "string",
+  },
+  AGENT_PROVIDER: {
+    description:
+      'API provider: "auto", "openai", "codex", "claude", or "deepseek".',
+    setExample: "openai",
+    type: "enum",
+    values: ["auto", "openai", "codex", "claude", "deepseek"],
+  },
   "auto-stage-all": {
     description:
       "Stage all changes automatically instead of prompting when augi commit finds none staged.",
+    setExample: "true",
+    type: "boolean",
   },
   "show-scope": {
     description:
       'Include a scope in generated subjects, e.g. "fix(cli): ...". Disable for a bare "<type>: <description>" subject.',
+    setExample: "false",
+    type: "boolean",
   },
   "show-usage-summary": {
     description:
-      "Print the local model's token, CPU, and GPU usage summary after generating a commit message.",
+      "Print the API provider, model, token, and timing summary after generating a commit message.",
+    setExample: "true",
+    type: "boolean",
   },
 });
 
@@ -30,15 +60,16 @@ export const configHelp = `augi config
 Get or set augi's persisted configuration.
 
 Usage:
+  augi config
   augi config list
   augi config get <key>
-  augi config set <key> <true|false>
+  augi config set <key> <value>
 
 Keys:
 ${Object.entries(CONFIG_SCHEMA)
   .map(
     ([key, { description }]) =>
-      `  ${key} (default: ${DEFAULT_CONFIG[key]})\n    ${description}`,
+      `  ${key} (default: ${formatDefaultValue(key)})\n    ${description}`,
   )
   .join("\n")}
 `;
@@ -99,9 +130,12 @@ export async function loadConfig(options = {}) {
 
   const config = { ...DEFAULT_CONFIG };
 
-  for (const key of Object.keys(CONFIG_SCHEMA)) {
-    if (Object.prototype.hasOwnProperty.call(parsed, key)) {
-      config[key] = Boolean(parsed[key]);
+  for (const [key, definition] of Object.entries(CONFIG_SCHEMA)) {
+    if (
+      Object.prototype.hasOwnProperty.call(parsed, key) &&
+      isStoredValueValid(parsed[key], definition)
+    ) {
+      config[key] = parsed[key];
     }
   }
 
@@ -112,7 +146,11 @@ export async function saveConfig(config, options = {}) {
   const path = options.path || getConfigFilePath(options);
 
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  await chmod(path, 0o600);
 
   return { path };
 }
@@ -125,8 +163,25 @@ function assertKnownKey(key) {
   }
 }
 
-function parseBooleanValue(key, rawValue) {
-  const normalized = String(rawValue).toLowerCase();
+function parseConfigValue(key, rawValue) {
+  const definition = CONFIG_SCHEMA[key];
+  const value = String(rawValue);
+
+  if (definition.type === "string") {
+    return value.trim();
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (definition.type === "enum") {
+    if (definition.values.includes(normalized)) {
+      return normalized;
+    }
+
+    throw new ConfigCommandUsageError(
+      `Invalid value for ${key}: ${rawValue}. Expected one of: ${definition.values.join(", ")}. Fix it with, for example: \`augi config set ${key} ${definition.setExample}\`.`,
+    );
+  }
 
   if (normalized === "true") {
     return true;
@@ -142,7 +197,82 @@ function parseBooleanValue(key, rawValue) {
 }
 
 function formatConfigValue(value) {
-  return value ? "true" : "false";
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  return String(value);
+}
+
+function formatVisibleConfigValue(key, value) {
+  const definition = CONFIG_SCHEMA[key];
+
+  if (definition.secret) {
+    return value ? "<redacted>" : "<not set>";
+  }
+
+  if (definition.defaultLabel && !value) {
+    return definition.defaultLabel;
+  }
+
+  return formatConfigValue(value);
+}
+
+function formatDefaultValue(key) {
+  if (CONFIG_SCHEMA[key].defaultLabel) {
+    return CONFIG_SCHEMA[key].defaultLabel;
+  }
+
+  return formatVisibleConfigValue(key, DEFAULT_CONFIG[key]);
+}
+
+function formatConfigLines(config, prefix = "") {
+  return Object.keys(CONFIG_SCHEMA)
+    .map(
+      (key) =>
+        `${prefix}${key} = ${formatVisibleConfigValue(key, config[key])}`,
+    )
+    .join("\n");
+}
+
+function formatConfigOverview(config) {
+  const updateCommands = Object.entries(CONFIG_SCHEMA)
+    .map(
+      ([key, definition]) =>
+        `  augi config set ${key} ${definition.setExample}`,
+    )
+    .join("\n");
+
+  return `Current configuration:\n${formatConfigLines(config, "  ")}\n\nUpdate values:\n${updateCommands}\n\nUse \`augi config get <key>\` to read one value or \`augi config --help\` for details.\n`;
+}
+
+function isStoredValueValid(value, definition) {
+  if (definition.type === "boolean") {
+    return typeof value === "boolean";
+  }
+
+  if (definition.type === "enum") {
+    return typeof value === "string" && definition.values.includes(value);
+  }
+
+  return typeof value === "string";
+}
+
+export function resolveAgentConfig(
+  config = DEFAULT_CONFIG,
+  { env = process.env } = {},
+) {
+  const apiKey = String(env.AGENT_API_KEY || config.AGENT_API_KEY || "").trim();
+  const provider = String(env.AGENT_PROVIDER || config.AGENT_PROVIDER || "auto")
+    .trim()
+    .toLowerCase();
+  const model = String(env.AGENT_MODEL || config.AGENT_MODEL || "").trim();
+
+  return {
+    apiKey,
+    provider,
+    ...(model ? { model } : {}),
+  };
 }
 
 export async function runConfigCommand(
@@ -152,11 +282,12 @@ export async function runConfigCommand(
 ) {
   const [subcommand, ...rest] = args;
 
-  if (
-    subcommand === undefined ||
-    subcommand === "--help" ||
-    subcommand === "-h"
-  ) {
+  if (subcommand === undefined) {
+    io.stdout.write(formatConfigOverview(await load()));
+    return 0;
+  }
+
+  if (subcommand === "--help" || subcommand === "-h") {
     io.stdout.write(configHelp);
     return 0;
   }
@@ -164,11 +295,7 @@ export async function runConfigCommand(
   if (subcommand === "list") {
     const config = await load();
 
-    io.stdout.write(
-      `${Object.keys(CONFIG_SCHEMA)
-        .map((key) => `${key} = ${formatConfigValue(config[key])}`)
-        .join("\n")}\n`,
-    );
+    io.stdout.write(`${formatConfigLines(config)}\n`);
     return 0;
   }
 
@@ -183,7 +310,7 @@ export async function runConfigCommand(
 
     const config = await load();
 
-    io.stdout.write(`${formatConfigValue(config[key])}\n`);
+    io.stdout.write(`${formatVisibleConfigValue(key, config[key])}\n`);
     return 0;
   }
 
@@ -191,20 +318,18 @@ export async function runConfigCommand(
     const [key, rawValue] = rest;
 
     if (!key || rawValue === undefined) {
-      throw new ConfigCommandUsageError(
-        "Usage: augi config set <key> <true|false>",
-      );
+      throw new ConfigCommandUsageError("Usage: augi config set <key> <value>");
     }
 
     assertKnownKey(key);
 
-    const value = parseBooleanValue(key, rawValue);
+    const value = parseConfigValue(key, rawValue);
     const config = await load();
 
     config[key] = value;
     await save(config);
 
-    io.stdout.write(`${key} = ${formatConfigValue(value)}\n`);
+    io.stdout.write(`${key} = ${formatVisibleConfigValue(key, value)}\n`);
     return 0;
   }
 

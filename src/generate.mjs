@@ -1,7 +1,6 @@
 import { assembleCommitFromSummaries } from "./assemble.mjs";
 import { extractKeyConcepts, inferRequiredType } from "./classify.mjs";
 import { collectStagedChanges } from "./git.mjs";
-import { ensureBuiltInModel } from "./model.mjs";
 import { InvalidModelOutputError, normalizeCommitMessage } from "./output.mjs";
 import {
   buildCommitPromptDetails,
@@ -9,10 +8,7 @@ import {
   buildSummaryCommitPrompt,
   promptInstructions,
 } from "./prompt.mjs";
-import {
-  createNodeLlamaRuntime,
-  ModelOutputTruncatedError,
-} from "./runtime.mjs";
+import { createAgentRuntime, ModelOutputTruncatedError } from "./runtime.mjs";
 import { sanitizeGitContext } from "./sanitize.mjs";
 import { planSummaryUnits, summarizeChangedFiles } from "./summarize.mjs";
 
@@ -26,12 +22,10 @@ const COMMIT_MAX_TOKENS = 512;
 export async function generateCommit({
   allowScope = true,
   collector = collectStagedChanges,
-  createRuntime = createNodeLlamaRuntime,
+  createRuntime = createAgentRuntime,
   cwd = process.cwd(),
-  ensureModel = ensureBuiltInModel,
   maxDiffBytes,
   maxSummaryDiffBytes,
-  onModelProgress = () => {},
   onStatus = () => {},
   previousMessages = [],
   runtime,
@@ -58,10 +52,10 @@ export async function generateCommit({
     planSummaryUnits(safeContext.diff, { maxDiffChars: maxSummaryDiffBytes })
       .units.length > 1;
 
-  onStatus({ phase: "loading-model" });
-  const model = await ensureModel({ onProgress: onModelProgress });
+  onStatus({ phase: "preparing-agent" });
   const ownsRuntime = !runtime;
   const activeRuntime = runtime || (await createRuntime());
+  const model = activeRuntime.getModelInfo?.();
   let fileSummaries;
   let summariesOmitted = 0;
   let promptDiffTruncated = false;
@@ -80,7 +74,7 @@ export async function generateCommit({
         keyConcepts,
         ...(fileSummaries ? { fileSummaries, summariesOmitted } : {}),
       },
-      model: model.model,
+      ...(model ? { model } : {}),
       ...(usage ? { usage } : {}),
     };
   };
@@ -164,7 +158,6 @@ export async function generateCommit({
       const summarized = await summarizeChangedFiles({
         diff: safeContext.diff,
         maxDiffChars: maxSummaryDiffBytes,
-        modelPath: model.path,
         onProgress: (progress) =>
           onStatus({ phase: "summarizing", ...progress }),
         repository: safeContext.repository,
@@ -191,7 +184,6 @@ export async function generateCommit({
       try {
         const output = await activeRuntime.generate({
           maxTokens: COMMIT_MAX_TOKENS,
-          modelPath: model.path,
           prompt,
           ...(diversify ? { seed: randomSeed() } : {}),
           signal,

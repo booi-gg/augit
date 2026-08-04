@@ -21,7 +21,7 @@ test("scores expected commit type and semantic keywords", () => {
   assert.equal(result.keywordTotal, 2);
 });
 
-test("summarizes quality, latency, memory, and model size", () => {
+test("summarizes quality, latency, and memory", () => {
   const summary = summarizeBenchmark(
     [
       {
@@ -46,7 +46,7 @@ test("summarizes quality, latency, memory, and model size", () => {
         keywordTotal: 2,
       },
     ],
-    { modelBytes: 10, peakRssBytes: 20 },
+    { peakRssBytes: 20 },
   );
 
   assert.deepEqual(summary, {
@@ -56,7 +56,6 @@ test("summarizes quality, latency, memory, and model size", () => {
     keywordAccuracy: 5 / 6,
     coldLatencyMs: 300,
     medianWarmLatencyMs: 150,
-    modelBytes: 10,
     peakRssBytes: 20,
   });
 });

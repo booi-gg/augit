@@ -22,12 +22,12 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
   selection colors only while writing to a color-capable TTY.
 - `src/sanitize.mjs` normalizes control characters, bounds every input class,
   and redacts common credential formats.
-- `src/prompt.mjs` serializes evidence as JSON and defines the grammar schema.
-- `src/model.mjs` owns the single built-in model, cache paths, atomic locking,
-  streaming verification, and cache fingerprints.
-- `src/runtime.mjs` lazily loads `node-llama-cpp`, creates a bounded context,
-  enforces JSON grammar, records token and local compute usage, probes the
-  selected CPU/GPU backend, and disposes native resources.
+- `src/prompt.mjs` serializes evidence as JSON and defines the output schema.
+- `src/config.mjs` owns typed persisted settings, secret-safe display, config
+  file permissions, and environment overrides.
+- `src/runtime.mjs` resolves the provider without sending a key speculatively,
+  translates the common runtime contract to OpenAI Responses, Claude Messages,
+  or DeepSeek Chat Completions, and records provider token usage.
 - `src/output.mjs` accepts structured or textual adapter results and enforces
   the Conventional Commit contract.
 - `src/generate.mjs` orchestrates the pipeline and retries one invalid model
@@ -35,8 +35,8 @@ collector -> sanitizer -> prompt builder -> runtime adapter -> validator
 - `src/commit.mjs` owns the commit wrapper: option parsing, optional staging,
   review/regeneration, non-interactive confirmation, Git argument passthrough,
   transparent command previews, and runtime reuse/disposal.
-- `src/index.mjs` exposes the library surface, routes CLI commands and model
-  cache operations, and keeps diagnostics on standard error.
+- `src/index.mjs` exposes the library surface, routes CLI commands, and keeps
+  diagnostics on standard error.
 
 ## Trust boundaries
 
@@ -45,26 +45,23 @@ files, control characters, or text attempting to instruct the model. The
 sanitizer runs before prompt construction, and the prompt identifies the
 serialized repository object as data rather than instructions.
 
-The model output is also untrusted. JSON grammar controls its shape, while the
-normalizer independently checks the type, scope, imperative subject, 72
-character subject ceiling, body length, and final formatting. The prompt
-targets 50-character subjects without truncating exact identifiers. The
-normalizer removes boilerplate bodies that only paraphrase the subject and
-wraps useful body lines at 72 characters.
+The sanitized prompt crosses a network trust boundary and is sent only to the
+explicitly configured provider. Automatic provider detection recognizes only
+unambiguous key formats; it never probes several vendors with the same secret.
+Provider errors and config output do not echo the API key.
 
-## Model lifecycle
+The model output is also untrusted. Provider structured-output controls shape
+where available, while the normalizer independently checks the type, scope,
+imperative subject, 72-character subject ceiling, body length, and final
+formatting. The prompt targets 50-character subjects without truncating exact
+identifiers. The normalizer removes boilerplate bodies that only paraphrase the
+subject and wraps useful body lines at 72 characters.
 
-Weights are downloaded to a platform cache and verified while streaming.
-Concurrent processes coordinate through an atomic directory lock whose mtime
-is refreshed during long downloads. Verification metadata records the pinned
-digest and a filesystem fingerprint. A fingerprint change forces a complete
-rehash before reuse. Cache clearing uses the same lock and removes only the
-built-in model and its verification or partial-download sidecars.
+## Runtime lifecycle
 
-The runtime loads the model lazily after staged changes have been found. A
-created runtime is disposed by the orchestrator; an injected runtime remains
-owned by its caller. Its usage meter accumulates exact input/output token
-counts across validation retries and regenerated proposals, process CPU time,
-wall time, and peak native CPU/GPU allocation. The CLI writes this diagnostic
-summary to standard error so standard output remains suitable for command
-substitution.
+The commit workflow creates one API runtime and reuses it across validation
+retries and regenerated proposals. A runtime created inside `generateCommit`
+is disposed there; an injected runtime remains owned by its caller. The usage
+meter accumulates provider-reported input/output tokens and wall time. The CLI
+writes the optional diagnostic summary to standard error so standard output
+remains suitable for command substitution.

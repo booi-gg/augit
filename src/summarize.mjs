@@ -148,7 +148,7 @@ function splitLongHunk(hunk, budget) {
   return pieces.length > 0 ? pieces : [hunk];
 }
 
-// Terse on purpose, to match the main prompt: a 1.5B model follows a short
+// Terse on purpose, to match the main prompt: models follow a short
 // imperative list better than prose, and this prompt runs once per file.
 export function buildFileSummaryPrompt(unit, { repository } = {}) {
   const scope =
@@ -207,7 +207,6 @@ ${unit.diff}`;
 export async function summarizeChangedFiles({
   diff,
   maxDiffChars,
-  modelPath,
   onProgress = () => {},
   repository,
   runtime,
@@ -231,7 +230,6 @@ export async function summarizeChangedFiles({
 
       try {
         const output = await runtime.generate({
-          modelPath,
           prompt,
           schema: FILE_SUMMARY_SCHEMA,
           signal,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -9,6 +9,7 @@ import {
   DEFAULT_CONFIG,
   getConfigDirectory,
   loadConfig,
+  resolveAgentConfig,
   runConfigCommand,
   saveConfig,
 } from "../src/config.mjs";
@@ -68,6 +69,9 @@ test("merges a saved config over the defaults", async () => {
   await saveConfig({ "auto-stage-all": true }, { path });
 
   assert.deepEqual(await loadConfig({ path }), {
+    AGENT_API_KEY: "",
+    AGENT_MODEL: "",
+    AGENT_PROVIDER: "auto",
     "auto-stage-all": true,
     "show-scope": true,
     "show-usage-summary": false,
@@ -75,6 +79,7 @@ test("merges a saved config over the defaults", async () => {
   assert.deepEqual(JSON.parse(await readFile(path, "utf8")), {
     "auto-stage-all": true,
   });
+  assert.equal((await stat(path)).mode & 0o777, 0o600);
 });
 
 test("rejects a malformed config file", async () => {
@@ -92,6 +97,9 @@ test("config list prints every known key", async () => {
   const status = await runConfigCommand(["list"], io, {
     async load() {
       return {
+        AGENT_API_KEY: "sk-secret",
+        AGENT_MODEL: "gpt-test",
+        AGENT_PROVIDER: "openai",
         "auto-stage-all": true,
         "show-scope": true,
         "show-usage-summary": false,
@@ -102,7 +110,12 @@ test("config list prints every known key", async () => {
   assert.equal(status, 0);
   assert.equal(
     state.stdout,
-    "auto-stage-all = true\nshow-scope = true\nshow-usage-summary = false\n",
+    "AGENT_API_KEY = <redacted>\n" +
+      "AGENT_MODEL = gpt-test\n" +
+      "AGENT_PROVIDER = openai\n" +
+      "auto-stage-all = true\n" +
+      "show-scope = true\n" +
+      "show-usage-summary = false\n",
   );
 });
 
@@ -112,6 +125,9 @@ test("config get prints a single value", async () => {
   const status = await runConfigCommand(["get", "show-usage-summary"], io, {
     async load() {
       return {
+        AGENT_API_KEY: "",
+        AGENT_MODEL: "",
+        AGENT_PROVIDER: "auto",
         "auto-stage-all": false,
         "show-scope": true,
         "show-usage-summary": true,
@@ -139,8 +155,135 @@ test("config set persists a boolean value through the injected save", async () =
   assert.equal(status, 0);
   assert.equal(state.stdout, "auto-stage-all = true\n");
   assert.deepEqual(saved, [
-    { "auto-stage-all": true, "show-scope": true, "show-usage-summary": false },
+    {
+      AGENT_API_KEY: "",
+      AGENT_MODEL: "",
+      AGENT_PROVIDER: "auto",
+      "auto-stage-all": true,
+      "show-scope": true,
+      "show-usage-summary": false,
+    },
   ]);
+});
+
+test("config stores strings and never prints an API key", async () => {
+  const { io, state } = fixtureIo();
+  const saved = [];
+
+  await runConfigCommand(["set", "AGENT_API_KEY", "sk-secret"], io, {
+    async load() {
+      return { ...DEFAULT_CONFIG };
+    },
+    async save(config) {
+      saved.push(config);
+    },
+  });
+
+  assert.equal(saved[0].AGENT_API_KEY, "sk-secret");
+  assert.equal(state.stdout, "AGENT_API_KEY = <redacted>\n");
+  assert.doesNotMatch(state.stdout, /sk-secret/);
+});
+
+test("config stores a trimmed agent model", async () => {
+  const { io, state } = fixtureIo();
+  let saved;
+
+  await runConfigCommand(["set", "AGENT_MODEL", "  gpt-5.3-codex  "], io, {
+    async load() {
+      return { ...DEFAULT_CONFIG };
+    },
+    async save(config) {
+      saved = config;
+    },
+  });
+
+  assert.equal(saved.AGENT_MODEL, "gpt-5.3-codex");
+  assert.equal(state.stdout, "AGENT_MODEL = gpt-5.3-codex\n");
+});
+
+test("config validates and normalizes the agent provider", async () => {
+  const { io, state } = fixtureIo();
+  let saved;
+
+  await runConfigCommand(["set", "AGENT_PROVIDER", "CLAUDE"], io, {
+    async load() {
+      return { ...DEFAULT_CONFIG };
+    },
+    async save(config) {
+      saved = config;
+    },
+  });
+
+  assert.equal(saved.AGENT_PROVIDER, "claude");
+  assert.equal(state.stdout, "AGENT_PROVIDER = claude\n");
+
+  await assert.rejects(
+    runConfigCommand(["set", "AGENT_PROVIDER", "ollama"], fixtureIo().io, {
+      async load() {
+        return { ...DEFAULT_CONFIG };
+      },
+    }),
+    (error) =>
+      /Expected one of: auto, openai, codex, claude, deepseek/.test(
+        error.message,
+      ) && /augi config set AGENT_PROVIDER openai/.test(error.message),
+  );
+});
+
+test("config hides an API key when reading it", async () => {
+  const { io, state } = fixtureIo();
+
+  await runConfigCommand(["get", "AGENT_API_KEY"], io, {
+    async load() {
+      return { ...DEFAULT_CONFIG, AGENT_API_KEY: "sk-secret" };
+    },
+  });
+
+  assert.equal(state.stdout, "<redacted>\n");
+});
+
+test("environment agent settings override persisted config", () => {
+  assert.deepEqual(
+    resolveAgentConfig(
+      {
+        ...DEFAULT_CONFIG,
+        AGENT_API_KEY: "saved-key",
+        AGENT_MODEL: "saved-model",
+        AGENT_PROVIDER: "deepseek",
+      },
+      {
+        env: {
+          AGENT_API_KEY: " env-key ",
+          AGENT_MODEL: " custom-model ",
+          AGENT_PROVIDER: " CLAUDE ",
+        },
+      },
+    ),
+    {
+      apiKey: "env-key",
+      model: "custom-model",
+      provider: "claude",
+    },
+  );
+});
+
+test("persisted agent model is used when the environment does not override it", () => {
+  assert.deepEqual(
+    resolveAgentConfig(
+      {
+        ...DEFAULT_CONFIG,
+        AGENT_API_KEY: "saved-key",
+        AGENT_MODEL: "deepseek-chat",
+        AGENT_PROVIDER: "deepseek",
+      },
+      { env: {} },
+    ),
+    {
+      apiKey: "saved-key",
+      model: "deepseek-chat",
+      provider: "deepseek",
+    },
+  );
 });
 
 test("config rejects an unknown key", async () => {
@@ -165,13 +308,47 @@ test("config rejects a non-boolean value", async () => {
   );
 });
 
-test("config prints help with no subcommand", async () => {
+test("config shows every value and update command with no subcommand", async () => {
   const { io, state } = fixtureIo();
 
-  const status = await runConfigCommand([], io);
+  const status = await runConfigCommand([], io, {
+    async load() {
+      return {
+        ...DEFAULT_CONFIG,
+        AGENT_API_KEY: "sk-secret",
+        AGENT_MODEL: "gpt-5-mini",
+        AGENT_PROVIDER: "openai",
+      };
+    },
+  });
 
   assert.equal(status, 0);
-  assert.match(state.stdout, /augi config/);
+  assert.match(state.stdout, /Current configuration:/);
+  assert.match(state.stdout, /AGENT_API_KEY = <redacted>/);
+  assert.match(state.stdout, /AGENT_MODEL = gpt-5-mini/);
+  assert.doesNotMatch(state.stdout, /sk-secret/);
+
+  for (const key of [
+    "AGENT_API_KEY",
+    "AGENT_MODEL",
+    "AGENT_PROVIDER",
+    "auto-stage-all",
+    "show-scope",
+    "show-usage-summary",
+  ]) {
+    assert.match(state.stdout, new RegExp(`augi config set ${key} `));
+  }
+});
+
+test("config help describes every key", async () => {
+  const { io, state } = fixtureIo();
+
+  const status = await runConfigCommand(["--help"], io);
+
+  assert.equal(status, 0);
+  assert.match(state.stdout, /AGENT_API_KEY/);
+  assert.match(state.stdout, /AGENT_MODEL \(default: <provider default>\)/);
+  assert.match(state.stdout, /AGENT_PROVIDER/);
   assert.match(state.stdout, /auto-stage-all/);
   assert.match(state.stdout, /show-scope/);
   assert.match(state.stdout, /show-usage-summary/);

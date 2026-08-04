@@ -1,43 +1,21 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 
+import { loadConfig, resolveAgentConfig } from "../src/config.mjs";
 import { generateCommit } from "../src/generate.mjs";
-import {
-  BUILT_IN_MODEL,
-  ensureBuiltInModel,
-  getBuiltInModelPath,
-} from "../src/model.mjs";
-import { createNodeLlamaRuntime } from "../src/runtime.mjs";
+import { createAgentRuntime } from "../src/runtime.mjs";
 import { scoreCase, summarizeBenchmark } from "./evaluate.mjs";
 
 const options = parseArguments(process.argv.slice(2));
 const cases = JSON.parse(
   await readFile(new URL("./cases.json", import.meta.url), "utf8"),
 );
-let modelPath = options.modelPath;
-
-if (!modelPath) {
-  if (options.download) {
-    let lastMilestone = -1;
-
-    ({ path: modelPath } = await ensureBuiltInModel({
-      onProgress({ downloaded, total }) {
-        const percent = Math.floor((downloaded / total) * 100);
-        const milestone = Math.floor(percent / 5) * 5;
-
-        if (milestone > lastMilestone && milestone < 100) {
-          lastMilestone = milestone;
-          process.stderr.write(`Preparing model: ${milestone}%\n`);
-        }
-      },
-    }));
-  } else {
-    modelPath = getBuiltInModelPath();
-    await ensureBuiltInModel({ offline: true, path: modelPath });
-  }
-}
-
-const runtime = createNodeLlamaRuntime();
+const configured = resolveAgentConfig(await loadConfig());
+const runtime = createAgentRuntime({
+  ...configured,
+  ...(options.model ? { model: options.model } : {}),
+  ...(options.provider ? { provider: options.provider } : {}),
+});
 const rows = [];
 let peakRssBytes = process.memoryUsage().rss;
 const memorySampler = setInterval(() => {
@@ -51,7 +29,6 @@ try {
     try {
       const result = await generateCommit({
         collector: async () => definition.context,
-        ensureModel: async () => ({ path: modelPath }),
         runtime,
       });
       const row = {
@@ -76,13 +53,11 @@ try {
   await runtime.dispose();
 }
 
-const modelFile = await stat(modelPath);
 const summary = summarizeBenchmark(rows, {
-  modelBytes: modelFile.size,
   peakRssBytes,
 });
 const report = {
-  model: options.modelPath ? modelPath : BUILT_IN_MODEL.id,
+  model: `${runtime.provider}/${runtime.model}`,
   generatedAt: new Date().toISOString(),
   platform: {
     arch: process.arch,
@@ -105,7 +80,6 @@ if (options.json) {
       `Cold latency: ${formatMilliseconds(summary.coldLatencyMs)}`,
       `Median warm latency: ${formatMilliseconds(summary.medianWarmLatencyMs)}`,
       `Peak RSS: ${formatBytes(summary.peakRssBytes)}`,
-      `Model size: ${formatBytes(summary.modelBytes)}`,
       "",
     ].join("\n"),
   );
@@ -113,9 +87,9 @@ if (options.json) {
 
 function parseArguments(args) {
   const parsed = {
-    download: false,
     json: false,
-    modelPath: undefined,
+    model: undefined,
+    provider: undefined,
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -123,12 +97,12 @@ function parseArguments(args) {
 
     if (argument === "--") {
       continue;
-    } else if (argument === "--download") {
-      parsed.download = true;
     } else if (argument === "--json") {
       parsed.json = true;
-    } else if (argument === "--model-path" && args[index + 1]) {
-      parsed.modelPath = args[++index];
+    } else if (argument === "--model" && args[index + 1]) {
+      parsed.model = args[++index];
+    } else if (argument === "--provider" && args[index + 1]) {
+      parsed.provider = args[++index];
     } else {
       throw new Error(`Unknown benchmark option: ${argument}`);
     }

@@ -1,325 +1,344 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { FILE_SUMMARY_SCHEMA } from "../src/summarize.mjs";
 import {
-  createNodeLlamaRuntime,
-  inspectNodeLlamaRuntime,
+  AgentApiError,
+  AgentConfigurationError,
+  createAgentRuntime,
+  DEFAULT_AGENT_MODELS,
+  ModelOutputTruncatedError,
+  ModelRuntimeError,
+  resolveAgentProvider,
 } from "../src/runtime.mjs";
 
-test("loads the model lazily and uses JSON grammar for inference", async () => {
+function jsonResponse(
+  body,
+  { ok = true, status = 200, statusText = "OK" } = {},
+) {
+  return {
+    ok,
+    status,
+    statusText,
+    async json() {
+      return body;
+    },
+  };
+}
+
+test("resolves explicit providers and only detects unambiguous keys", () => {
+  assert.equal(
+    resolveAgentProvider({ apiKey: "anything", provider: "anthropic" }),
+    "claude",
+  );
+  assert.equal(
+    resolveAgentProvider({ apiKey: "anything", provider: "CODEX" }),
+    "codex",
+  );
+  assert.equal(
+    resolveAgentProvider({ apiKey: "sk-ant-fixture", provider: "auto" }),
+    "claude",
+  );
+  assert.equal(
+    resolveAgentProvider({ apiKey: "sk-proj-fixture", provider: "auto" }),
+    "openai",
+  );
+  assert.throws(
+    () => resolveAgentProvider({ apiKey: "sk-ambiguous", provider: "auto" }),
+    (error) =>
+      error instanceof AgentConfigurationError &&
+      /Cannot safely determine/.test(error.message) &&
+      /augi config set AGENT_PROVIDER openai/.test(error.message),
+  );
+});
+
+test("requires an API key and a supported provider", () => {
+  assert.throws(
+    () => createAgentRuntime({ apiKey: "", provider: "openai" }),
+    (error) =>
+      error instanceof AgentConfigurationError &&
+      error.code === "AGENT_CONFIGURATION_INVALID" &&
+      /AGENT_API_KEY/.test(error.message) &&
+      /augi config set AGENT_API_KEY/.test(error.message),
+  );
+  assert.throws(
+    () => createAgentRuntime({ apiKey: "fixture", provider: "ollama" }),
+    (error) =>
+      /Unsupported AGENT_PROVIDER/.test(error.message) &&
+      /augi config set AGENT_PROVIDER openai/.test(error.message),
+  );
+  assert.throws(
+    () =>
+      createAgentRuntime({
+        apiKey: "fixture",
+        model: "   ",
+        provider: "openai",
+      }),
+    (error) =>
+      /AGENT_MODEL/.test(error.message) &&
+      /augi config set AGENT_MODEL ""/.test(error.message),
+  );
+});
+
+test("calls OpenAI Responses with a strict schema and records usage", async () => {
   const calls = [];
-  const grammar = {
-    parse(value) {
-      calls.push(["parse", value]);
-      return JSON.parse(value);
+  const times = [100, 125];
+  const runtime = createAgentRuntime({
+    apiKey: "sk-proj-fixture",
+    fetch: async (url, options) => {
+      calls.push({ url, options, body: JSON.parse(options.body) });
+      return jsonResponse({
+        output: [
+          {
+            content: [
+              {
+                type: "output_text",
+                text: '{"subject":"feat: call an API","body":""}',
+              },
+            ],
+          },
+        ],
+        status: "completed",
+        usage: {
+          input_tokens: 800,
+          output_tokens: 24,
+          total_tokens: 824,
+        },
+      });
     },
-  };
-  const sequence = {
-    tokenMeter: {
-      getState() {
-        return {
-          usedInputTokens: 1_024,
-          usedOutputTokens: 24,
-        };
-      },
-    },
-  };
-  const context = {
-    contextSize: 8192,
-    getSequence() {
-      return sequence;
-    },
-    async dispose() {
-      calls.push(["dispose-context"]);
-    },
-  };
-  const model = {
-    async createContext(options) {
-      calls.push(["create-context", options]);
-      return context;
-    },
-    async dispose() {
-      calls.push(["dispose-model"]);
-    },
-  };
-  const llama = {
-    cpuMathCores: 6,
-    gpu: "metal",
-    async loadModel(options) {
-      calls.push(["load-model", options]);
-      return model;
-    },
-    async createGrammarForJsonSchema(schema) {
-      calls.push(["grammar", schema]);
-      return grammar;
-    },
-    async getGpuDeviceNames() {
-      return ["Fixture GPU"];
-    },
-    async getLlamaMemoryUsage() {
-      return {
-        cpuRam: 250_000_000,
-        gpuVram: 1_100_000_000,
-      };
-    },
-    async dispose() {
-      calls.push(["dispose-llama"]);
-    },
-  };
-
-  class FakeSession {
-    constructor(options) {
-      calls.push(["session", options]);
-    }
-
-    async prompt(prompt, options) {
-      calls.push(["prompt", prompt, options]);
-      return '{"subject":"feat: run locally","body":""}';
-    }
-
-    dispose() {
-      calls.push(["dispose-session"]);
-    }
-  }
-
-  const runtime = createNodeLlamaRuntime({
-    loadModule: async () => ({
-      getLlama: async (options) => {
-        calls.push(["get-llama", options]);
-        return llama;
-      },
-      LlamaChatSession: FakeSession,
-    }),
-    cpuUsage(previousValue) {
-      return previousValue
-        ? { user: 300_000, system: 50_000 }
-        : { user: 0, system: 0 };
-    },
-    now: (() => {
-      const values = [100, 2_600, 3_000, 4_000];
-
-      return () => values.shift();
-    })(),
+    now: () => times.shift(),
+    provider: "openai",
   });
 
-  const result = await runtime.generate({
-    modelPath: "/cache/model.gguf",
-    prompt: "Generate one message.",
-  });
-  await runtime.generate({
-    modelPath: "/cache/model.gguf",
-    prompt: "Generate another message.",
-  });
-  const usage = runtime.getUsage();
-  await runtime.dispose();
-
-  assert.deepEqual(result, {
-    subject: "feat: run locally",
+  assert.deepEqual(await runtime.generate({ prompt: "Write JSON" }), {
+    subject: "feat: call an API",
     body: "",
   });
-  assert.equal(calls.filter(([name]) => name === "load-model").length, 1);
-  assert.deepEqual(calls.find(([name]) => name === "get-llama")[1], {
-    gpu: "auto",
-    logLevel: "error",
+  assert.equal(calls[0].url, "https://api.openai.com/v1/responses");
+  assert.equal(
+    calls[0].options.headers.Authorization,
+    "Bearer sk-proj-fixture",
+  );
+  assert.equal(calls[0].body.model, DEFAULT_AGENT_MODELS.openai);
+  assert.equal(calls[0].body.max_output_tokens, 1_024);
+  assert.deepEqual(calls[0].body.reasoning, { effort: "low" });
+  assert.equal(calls[0].body.store, false);
+  assert.deepEqual(calls[0].body.text.format, {
+    name: "commit_message",
+    schema: calls[0].body.text.format.schema,
+    strict: true,
+    type: "json_schema",
   });
-  assert.deepEqual(calls.find(([name]) => name === "create-context")[1], {
-    contextSize: 16_384,
+  assert.deepEqual(runtime.getModelInfo(), {
+    id: DEFAULT_AGENT_MODELS.openai,
+    name: DEFAULT_AGENT_MODELS.openai,
+    provider: "openai",
   });
-  assert.equal(calls.find(([name]) => name === "prompt")[2].temperature, 0);
-  assert.equal(calls.find(([name]) => name === "prompt")[2].maxTokens, 256);
-  assert.ok(calls.some(([name]) => name === "dispose-context"));
-  assert.ok(calls.some(([name]) => name === "dispose-model"));
-  assert.ok(calls.some(([name]) => name === "dispose-llama"));
-  assert.deepEqual(usage, {
-    generations: 2,
-    tokens: {
-      input: 2_048,
-      output: 48,
-      total: 2_096,
-    },
-    wallTimeMs: 3_500,
-    cpu: {
-      model: usage.cpu.model,
-      logicalCores: usage.cpu.logicalCores,
-      mathCores: 6,
-      timeMs: 700,
-      memoryBytes: 250_000_000,
-    },
-    gpu: {
-      backend: "metal",
-      devices: ["Fixture GPU"],
-      memoryBytes: 1_100_000_000,
-    },
+  assert.deepEqual(runtime.getUsage(), {
+    generations: 1,
+    model: DEFAULT_AGENT_MODELS.openai,
+    provider: "openai",
+    tokens: { input: 800, output: 24, total: 824 },
+    wallTimeMs: 25,
   });
 });
 
-test("forwards a non-zero temperature and seed for diversified sampling", async () => {
-  const calls = [];
-  const grammar = { parse: (value) => JSON.parse(value) };
-  const sequence = { tokenMeter: { getState: () => undefined } };
-  const context = {
-    getSequence: () => sequence,
-    async dispose() {},
-  };
-  const model = {
-    async createContext() {
-      return context;
+test("uses the Codex model preset with an OpenAI API key", async () => {
+  let request;
+  const runtime = createAgentRuntime({
+    apiKey: "fixture-key",
+    fetch: async (url, options) => {
+      request = { url, body: JSON.parse(options.body) };
+      return jsonResponse({
+        output_text: '{"subject":"fix: use codex","body":""}',
+        status: "completed",
+      });
     },
-    async dispose() {},
-  };
-  const llama = {
-    async loadModel() {
-      return model;
-    },
-    async createGrammarForJsonSchema() {
-      return grammar;
-    },
-    async dispose() {},
-  };
-
-  class FakeSession {
-    async prompt(prompt, options) {
-      calls.push(options);
-      return '{"subject":"feat: vary sampling","body":""}';
-    }
-
-    dispose() {}
-  }
-
-  const runtime = createNodeLlamaRuntime({
-    loadModule: async () => ({
-      getLlama: async () => llama,
-      LlamaChatSession: FakeSession,
-    }),
+    provider: "codex",
   });
 
-  await runtime.generate({
-    modelPath: "/cache/model.gguf",
-    prompt: "Generate a different message.",
-    seed: 42,
-    temperature: 0.8,
-  });
+  await runtime.generate({ prompt: "Write JSON" });
 
-  assert.equal(calls[0].temperature, 0.8);
-  assert.equal(calls[0].seed, 42);
+  assert.equal(request.url, "https://api.openai.com/v1/responses");
+  assert.equal(request.body.model, DEFAULT_AGENT_MODELS.codex);
+  assert.deepEqual(request.body.reasoning, { effort: "low" });
 });
 
-test("ignores a seed when temperature stays at zero", async () => {
-  const calls = [];
-  const grammar = { parse: (value) => JSON.parse(value) };
-  const sequence = { tokenMeter: { getState: () => undefined } };
-  const context = {
-    getSequence: () => sequence,
-    async dispose() {},
-  };
-  const model = {
-    async createContext() {
-      return context;
+test("calls Claude Messages with its API headers and output schema", async () => {
+  let request;
+  const runtime = createAgentRuntime({
+    apiKey: "sk-ant-fixture",
+    fetch: async (url, options) => {
+      request = { url, options, body: JSON.parse(options.body) };
+      return jsonResponse({
+        content: [
+          {
+            type: "text",
+            text: '{"summary":"Guard missing profiles"}',
+          },
+        ],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 120, output_tokens: 8 },
+      });
     },
-    async dispose() {},
-  };
-  const llama = {
-    async loadModel() {
-      return model;
-    },
-    async createGrammarForJsonSchema() {
-      return grammar;
-    },
-    async dispose() {},
-  };
+    provider: "auto",
+  });
 
-  class FakeSession {
-    async prompt(prompt, options) {
-      calls.push(options);
-      return '{"subject":"feat: run locally","body":""}';
-    }
-
-    dispose() {}
-  }
-
-  const runtime = createNodeLlamaRuntime({
-    loadModule: async () => ({
-      getLlama: async () => llama,
-      LlamaChatSession: FakeSession,
+  assert.deepEqual(
+    await runtime.generate({
+      prompt: "Summarize as JSON",
+      schema: FILE_SUMMARY_SCHEMA,
+      temperature: 0.8,
     }),
+    { summary: "Guard missing profiles" },
+  );
+  assert.equal(request.url, "https://api.anthropic.com/v1/messages");
+  assert.equal(request.options.headers["x-api-key"], "sk-ant-fixture");
+  assert.equal(request.options.headers["anthropic-version"], "2023-06-01");
+  assert.equal(request.body.model, DEFAULT_AGENT_MODELS.claude);
+  assert.equal(request.body.temperature, 0.8);
+  assert.deepEqual(request.body.output_config.format, {
+    schema: FILE_SUMMARY_SCHEMA,
+    type: "json_schema",
   });
-
-  await runtime.generate({
-    modelPath: "/cache/model.gguf",
-    prompt: "Generate one message.",
-    seed: 42,
-  });
-
-  assert.equal(calls[0].temperature, 0);
-  assert.equal(calls[0].seed, undefined);
 });
 
-test("inspects CPU, GPU, and token limits without loading model weights", async () => {
-  const calls = [];
-  const llama = {
-    cpuMathCores: 8,
-    gpu: "metal",
-    async dispose() {
-      calls.push("dispose");
+test("calls DeepSeek Chat Completions without sharing its key elsewhere", async () => {
+  let request;
+  const runtime = createAgentRuntime({
+    apiKey: "sk-ambiguous-fixture",
+    fetch: async (url, options) => {
+      request = { url, options, body: JSON.parse(options.body) };
+      return jsonResponse({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: '{"subject":"feat: use deepseek","body":""}',
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 200,
+          completion_tokens: 12,
+          total_tokens: 212,
+        },
+      });
     },
-    async getGpuDeviceNames() {
-      return ["Fixture GPU"];
-    },
-    async getRamState() {
-      return { total: 32_000_000_000 };
-    },
-    async getVramState() {
-      return {
-        total: 20_000_000_000,
-        unifiedSize: 20_000_000_000,
-      };
-    },
-  };
-
-  const info = await inspectNodeLlamaRuntime({
-    loadModule: async () => ({
-      async getLlama(options) {
-        calls.push(options);
-        return llama;
-      },
-    }),
+    provider: "deepseek",
   });
 
-  assert.equal(info.contextSize, 16_384);
-  assert.equal(info.maxTokens, 256);
-  assert.equal(info.cpu.mathCores, 8);
-  assert.equal(info.cpu.ramBytes, 32_000_000_000);
-  assert.equal(info.gpu.backend, "metal");
-  assert.deepEqual(info.gpu.devices, ["Fixture GPU"]);
-  assert.equal(info.gpu.memoryBytes, 20_000_000_000);
-  assert.equal(info.gpu.unifiedMemory, true);
-  assert.deepEqual(calls[0], { gpu: "auto", logLevel: "error" });
-  assert.equal(calls.at(-1), "dispose");
+  await runtime.generate({ prompt: "Write JSON" });
+
+  assert.equal(request.url, "https://api.deepseek.com/chat/completions");
+  assert.equal(
+    request.options.headers.Authorization,
+    "Bearer sk-ambiguous-fixture",
+  );
+  assert.equal(request.body.model, DEFAULT_AGENT_MODELS.deepseek);
+  assert.deepEqual(request.body.response_format, { type: "json_object" });
+  assert.deepEqual(request.body.thinking, { type: "disabled" });
 });
 
-test("keeps host information when the GPU probe is unavailable", async () => {
-  const info = await inspectNodeLlamaRuntime({
-    loadModule: async () => ({
-      async getLlama() {
-        return {
-          async dispose() {
-            throw new Error("dispose failed");
-          },
-          async getGpuDeviceNames() {
-            throw new Error("GPU probe failed");
-          },
-          async getRamState() {
-            return { total: 1 };
-          },
-          async getVramState() {
-            return { total: 1, unifiedSize: 0 };
-          },
-        };
-      },
-    }),
+test("reports provider errors without exposing the API key", async () => {
+  const apiKey = "sk-ant-super-secret";
+  const runtime = createAgentRuntime({
+    apiKey,
+    fetch: async () =>
+      jsonResponse(
+        { error: { message: `authentication failed for ${apiKey}` } },
+        { ok: false, status: 401, statusText: "Unauthorized" },
+      ),
+    provider: "claude",
   });
 
-  assert.match(info.cpu.model, /\S/);
-  assert.equal(info.gpu.backend, "unavailable");
-  assert.equal(info.error, "GPU probe failed");
+  await assert.rejects(runtime.generate({ prompt: "Write JSON" }), (error) => {
+    assert.ok(error instanceof AgentApiError);
+    assert.equal(error.status, 401);
+    assert.match(error.message, /Claude API request failed \(401\)/);
+    assert.match(error.message, /augi config set AGENT_PROVIDER claude/);
+    assert.match(error.message, /augi config set AGENT_API_KEY/);
+    assert.doesNotMatch(error.message, new RegExp(apiKey));
+    return true;
+  });
+});
+
+test("turns an unavailable model response into model setup instructions", async () => {
+  const apiKey = "sk-proj-super-secret";
+  const runtime = createAgentRuntime({
+    apiKey,
+    fetch: async () =>
+      jsonResponse(
+        {
+          error: {
+            code: "model_not_found",
+            message: "The requested model does not exist or is unavailable.",
+          },
+        },
+        { ok: false, status: 404, statusText: "Not Found" },
+      ),
+    model: "missing-model",
+    provider: "openai",
+  });
+
+  await assert.rejects(runtime.generate({ prompt: "Write JSON" }), (error) => {
+    assert.ok(error instanceof AgentApiError);
+    assert.equal(error.status, 404);
+    assert.match(error.message, /model may not exist/);
+    assert.match(error.message, /augi config set AGENT_MODEL ""/);
+    assert.doesNotMatch(error.message, new RegExp(apiKey));
+    return true;
+  });
+});
+
+test("turns provider length stops into retryable truncation errors", async () => {
+  const runtime = createAgentRuntime({
+    apiKey: "fixture",
+    fetch: async () =>
+      jsonResponse({
+        choices: [
+          {
+            finish_reason: "length",
+            message: { content: '{"subject":"fix: cut' },
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+      }),
+    provider: "deepseek",
+  });
+
+  await assert.rejects(
+    runtime.generate({ prompt: "Write JSON" }),
+    (error) => error instanceof ModelOutputTruncatedError,
+  );
+  assert.equal(runtime.getUsage().generations, 1);
+});
+
+test("returns malformed JSON as text for downstream repair", async () => {
+  const runtime = createAgentRuntime({
+    apiKey: "fixture",
+    fetch: async () =>
+      jsonResponse({
+        choices: [{ finish_reason: "stop", message: { content: "not json" } }],
+      }),
+    provider: "deepseek",
+  });
+
+  assert.equal(await runtime.generate({ prompt: "Write JSON" }), "not json");
+});
+
+test("a disposed runtime rejects further generation", async () => {
+  const runtime = createAgentRuntime({
+    apiKey: "fixture",
+    fetch: async () => jsonResponse({}),
+    provider: "openai",
+  });
+
+  await runtime.dispose();
+
+  await assert.rejects(
+    runtime.generate({ prompt: "Write JSON" }),
+    (error) =>
+      error instanceof ModelRuntimeError && /disposed/.test(error.message),
+  );
 });

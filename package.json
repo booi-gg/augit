@@ -1,13 +1,14 @@
 {
   "name": "augi-commit",
   "version": "0.1.17",
-  "description": "Generate concise Git commit messages with a small local language model.",
+  "description": "Generate concise Git commit messages with your preferred agent API.",
   "keywords": [
     "commit",
     "conventional-commits",
     "git",
-    "local-ai",
-    "llama"
+    "openai",
+    "claude",
+    "deepseek"
   ],
   "license": "MIT",
   "author": "Booi <booimangang@gmail.com>",
@@ -33,8 +34,7 @@
     "bin",
     "docs",
     "scripts",
-    "src",
-    "THIRD_PARTY_NOTICES.md"
+    "src"
   ],
   "scripts": {
     "benchmark": "node benchmark/run.mjs",
@@ -53,16 +53,6 @@
     "node": ">=22.13"
   },
   "packageManager": "pnpm@10.33.2",
-  "dependencies": {
-    "node-llama-cpp": "3.19.1",
-    "proper-lockfile": "4.1.2",
-    "widget": "^0.0.2"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "node-llama-cpp"
-    ]
-  },
   "devDependencies": {
     "prettier": "3.9.6"
   }

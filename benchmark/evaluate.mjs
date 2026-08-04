@@ -19,7 +19,7 @@ export function scoreCase(definition, result) {
   };
 }
 
-export function summarizeBenchmark(rows, { modelBytes, peakRssBytes } = {}) {
+export function summarizeBenchmark(rows, { peakRssBytes } = {}) {
   const successful = rows.filter((row) => !row.error);
   const latencies = successful.map((row) => row.latencyMs);
   const warmLatencies = latencies.slice(1);
@@ -43,7 +43,6 @@ export function summarizeBenchmark(rows, { modelBytes, peakRssBytes } = {}) {
     coldLatencyMs: latencies[0] ?? null,
     medianWarmLatencyMs:
       warmLatencies.length === 0 ? null : median(warmLatencies),
-    modelBytes: modelBytes ?? null,
     peakRssBytes: peakRssBytes ?? null,
   };
 }

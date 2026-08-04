@@ -24,8 +24,8 @@ export const COMMIT_OUTPUT_SCHEMA = Object.freeze({
   required: ["subject", "body"],
 });
 
-// Roughly 5.7k tokens of a 16k context, leaving room for the repair suffix and
-// the reply. At 14k bytes the biggest file in a ten-file change was cut to a
+// Leaves ample room for the repair suffix and the reply across supported APIs.
+// At 14k bytes the biggest file in a ten-file change was cut to a
 // header and two hunks while a three-line manifest edit fitted whole, so the
 // only edit the model could read end to end was the least important one.
 export const MAX_PROMPT_BYTES = 20 * 1024;
@@ -195,7 +195,7 @@ export function buildSummaryCommitPrompt(
 }
 
 // Prompt text is deliberately terse: clipped rules, no articles or hedging.
-// A 1.5B model tracks a short imperative list better than prose, and every byte
+// Models track a short imperative list better than prose, and every byte
 // saved here is a byte of diff that survives MAX_PROMPT_BYTES truncation.
 function renderPrompt(
   evidence,
