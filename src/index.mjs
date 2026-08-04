@@ -21,6 +21,7 @@ import {
   promptForGeneratedCommit,
   promptForNoStagedChanges,
 } from "./interactive.mjs";
+import { clearLegacyModel } from "./model-cache.mjs";
 import { createAgentRuntime } from "./runtime.mjs";
 
 const help = `augi
@@ -36,6 +37,7 @@ Commands:
   config                Get or set persisted configuration
 
 Options:
+      --clear-model     Delete the model downloaded by earlier Augi versions
   -h, --help            Show help
   -v, --version         Show version
 
@@ -106,6 +108,7 @@ export async function run(
   args,
   io = process,
   {
+    clearModel = clearLegacyModel,
     commitChanges = commitStagedChanges,
     createRuntime = createAgentRuntime,
     cwd = process.cwd(),
@@ -123,6 +126,19 @@ export async function run(
     const packageJson = JSON.parse(await readFile(packageUrl, "utf8"));
     io.stdout.write(`${packageJson.version}\n`);
     return 0;
+  }
+
+  if (args.length === 1 && args[0] === "--clear-model") {
+    try {
+      const result = await clearModel();
+      const state = result.cleared ? "cleared" : "is not cached";
+
+      io.stdout.write(`Built-in model ${state}: ${result.path}\n`);
+      return 0;
+    } catch (error) {
+      io.stderr.write(`${error?.message || String(error)}\n`);
+      return 1;
+    }
   }
 
   if (
