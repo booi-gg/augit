@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   AGENT_MODEL: "",
   AGENT_PROVIDER: "auto",
   "auto-stage-all": false,
+  caveman: true,
   "show-scope": true,
   "show-usage-summary": false,
 });
@@ -39,6 +40,12 @@ const CONFIG_SCHEMA = Object.freeze({
     description:
       "Stage all changes automatically instead of prompting when augit commit finds none staged.",
     setExample: "true",
+    type: "boolean",
+  },
+  caveman: {
+    description:
+      'Write the subject and body in caveman style: articles and filler dropped, "<old> -> <new>" for replacements. Identifiers, paths and BREAKING CHANGE notes stay spelled out. Disable for plain English.',
+    setExample: "false",
     type: "boolean",
   },
   "show-scope": {

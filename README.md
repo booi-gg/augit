@@ -116,6 +116,26 @@ The interactive review offers **Commit**, **Generate again**, and **Cancel**.
 Regeneration reuses the same API runtime and asks for a proposal different from
 the last three results.
 
+### Caveman style
+
+Messages are written in caveman style by default: articles, filler and hedging
+are dropped, replacements are written as `<old> -> <new>`, and a body line is a
+fragment rather than a sentence.
+
+```
+fix(auth): expiry check use < not <=
+
+- retry cap 3 -> 5
+- drop unused `parseJwt` import
+```
+
+Compression stops where guessing would cost the reader. Identifiers, paths,
+flags, versions and error strings are copied out of the diff exactly, never
+abbreviated, and a `BREAKING CHANGE:` note, security fix, data migration or
+revert keeps its plain full wording.
+
+Turn it off for plain English with `augit config set caveman false`.
+
 ### Remove a model downloaded by an earlier version
 
 Augi no longer downloads or runs a local model. After upgrading from an older
@@ -136,6 +156,7 @@ It respects `AUGI_CACHE_DIR` when the former cache location was overridden.
 | `AGENT_MODEL`        | empty       | Model ID; an empty value selects the provider's default                            |
 | `AGENT_PROVIDER`     | `auto`      | `auto`, `openai`, `codex`, `claude`, or `deepseek`                                 |
 | `auto-stage-all`     | `false`     | Skip the staging prompt and stage all changes automatically                        |
+| `caveman`            | `true`      | Write the subject and body in caveman style; set `false` for plain English         |
 | `show-scope`         | `true`      | Include a scope such as `fix(cli): ...`; set `false` for a bare `fix: ...` subject |
 | `show-usage-summary` | `false`     | Print provider, model, token counts, and wall time after generation                |
 
@@ -154,6 +175,7 @@ augit config set AGENT_API_KEY "$OPENAI_API_KEY"
 augit config set AGENT_PROVIDER openai
 augit config set AGENT_MODEL gpt-5.3-codex
 augit config set auto-stage-all true
+augit config set caveman false
 augit config set show-scope false
 augit config set show-usage-summary true
 ```

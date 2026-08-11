@@ -73,6 +73,7 @@ test("merges a saved config over the defaults", async () => {
     AGENT_MODEL: "",
     AGENT_PROVIDER: "auto",
     "auto-stage-all": true,
+    caveman: true,
     "show-scope": true,
     "show-usage-summary": false,
   });
@@ -101,6 +102,7 @@ test("config list prints every known key", async () => {
         AGENT_MODEL: "gpt-test",
         AGENT_PROVIDER: "openai",
         "auto-stage-all": true,
+        caveman: true,
         "show-scope": true,
         "show-usage-summary": false,
       };
@@ -114,6 +116,7 @@ test("config list prints every known key", async () => {
       "AGENT_MODEL = gpt-test\n" +
       "AGENT_PROVIDER = openai\n" +
       "auto-stage-all = true\n" +
+      "caveman = true\n" +
       "show-scope = true\n" +
       "show-usage-summary = false\n",
   );
@@ -160,6 +163,7 @@ test("config set persists a boolean value through the injected save", async () =
       AGENT_MODEL: "",
       AGENT_PROVIDER: "auto",
       "auto-stage-all": true,
+      caveman: true,
       "show-scope": true,
       "show-usage-summary": false,
     },
@@ -333,6 +337,7 @@ test("config shows every value and update command with no subcommand", async () 
     "AGENT_MODEL",
     "AGENT_PROVIDER",
     "auto-stage-all",
+    "caveman",
     "show-scope",
     "show-usage-summary",
   ]) {
@@ -350,6 +355,7 @@ test("config help describes every key", async () => {
   assert.match(state.stdout, /AGENT_MODEL \(default: <provider default>\)/);
   assert.match(state.stdout, /AGENT_PROVIDER/);
   assert.match(state.stdout, /auto-stage-all/);
+  assert.match(state.stdout, /caveman/);
   assert.match(state.stdout, /show-scope/);
   assert.match(state.stdout, /show-usage-summary/);
 });

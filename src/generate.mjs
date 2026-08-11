@@ -21,6 +21,7 @@ const COMMIT_MAX_TOKENS = 512;
 
 export async function generateCommit({
   allowScope = true,
+  caveman = true,
   collector = collectStagedChanges,
   createRuntime = createAgentRuntime,
   cwd = process.cwd(),
@@ -90,12 +91,19 @@ export async function generateCommit({
           summaries: fileSummaries,
           unitsDropped: summariesOmitted,
         },
-        { allowScope, keyConcepts, previousMessages: proposals, requiredType },
+        {
+          allowScope,
+          caveman,
+          keyConcepts,
+          previousMessages: proposals,
+          requiredType,
+        },
       );
     }
 
     const details = buildCommitPromptDetails(safeContext, {
       allowScope,
+      caveman,
       keyConcepts,
       previousMessages: proposals,
       requiredType,

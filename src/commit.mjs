@@ -179,6 +179,7 @@ export async function runCommitWorkflow(
 
     const generationOptions = {
       allowScope: config["show-scope"],
+      caveman: config.caveman,
       cwd,
       onStatus({ phase }) {
         if (phase === lastPhase) {
