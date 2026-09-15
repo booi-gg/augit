@@ -7,7 +7,7 @@ export const DEFAULT_AGENT_MODELS = Object.freeze({
   openai: "gpt-5-mini",
   codex: "gpt-5.3-codex",
   claude: "claude-haiku-4-5",
-  deepseek: "deepseek-v4-flash",
+  deepseek: "deepseek-flash",
 });
 
 const SYSTEM_PROMPT =
